@@ -150,7 +150,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 <div class="panel" id="panel-stock">
 
   <div class="warnbox">
-    Hisse tarafı <b>FMP API anahtarı</b> gerektirir (financialmodelingprep.com — ücretsiz plan günde 250 istek). BIST için 4 saatlik veri desteği plana göre değişebilir; desteklenmeyen semboller hata olarak listelenir. ATH, FMP'nin verdiği geçmişle sınırlıdır (~5 yıl).
+    Hisse tarafı <b>FMP API anahtarı</b> gerektirir (financialmodelingprep.com — ücretsiz plan günde 250 istek). Ücretsiz planda yalnızca <b>ABD hisseleri, günlük veriyle</b> taranır: günlük RSI uyumsuzluğu + kapitülasyon + hacimli dönüş mumu. BIST ve intraday (1s/4s) ücretsiz planda desteklenmez. ATH, FMP geçmişiyle sınırlıdır (~5 yıl).
   </div>
 
   <details class="settings" open>
@@ -321,7 +321,21 @@ function analyzeAll(s1h, s4h, s1d, p){
   const rev=findReversal(o,h,l,c,v,vs,p);
   const divCount=(div1h?1:0)+(div4h?1:0)+(div1d?1:0);
   const score=(divCount>0?1:0)+(cap?1:0)+(rev?1:0);
-  return {div1h,div4h,div1d,divCount,cap,rev,score,lastRSI:rsi[rsi.length-1]};
+  return {div1h,div4h,div1d,divCount,cap,rev,score,showIntraday:true,lastRSI:rsi[rsi.length-1]};
+}
+
+/* hisse: yalnızca günlük seri · uyumsuzluk + kapitülasyon + dönüş mumu */
+function analyzeDaily(sD, p){
+  if(!sD || sD.c.length<40) return null;
+  const {o,h,l,c,v}=sD;
+  const rsi=computeRSI(c,p.rsiPeriod);
+  const atr=computeATR(h,l,c,14);
+  const vs=volSMA(v,20);
+  const div1d=bullishDivergence(l,rsi,p);
+  const cap=findCapitulation(o,h,l,c,v,atr,vs,p);
+  const rev=findReversal(o,h,l,c,v,vs,p);
+  return {div1h:null,div4h:null,div1d,divCount:(div1d?1:0),cap,rev,showIntraday:false,
+          score:(div1d?1:0)+(cap?1:0)+(rev?1:0),lastRSI:rsi[rsi.length-1]};
 }
 
 /* ---------- eşzamanlılık havuzu ---------- */
@@ -353,8 +367,8 @@ function renderCard(r, currency){
       <div class="labels"><span>ATH: ${fmtPrice(r.ath)}</span><span class="mono">zirveden −%${ddPct.toFixed(1)}</span></div>
     </div>
     <div class="badges">
-      <span class="badge ${r.sig.div1h?'on-div':''}">Uyum. 1s ${r.sig.div1h?'✓':'—'}</span>
-      <span class="badge ${r.sig.div4h?'on-div':''}">Uyum. 4s ${r.sig.div4h?'✓':'—'}</span>
+      ${r.sig.showIntraday ? `<span class="badge ${r.sig.div1h?'on-div':''}">Uyum. 1s ${r.sig.div1h?'✓':'—'}</span>` : ''}
+      ${r.sig.showIntraday ? `<span class="badge ${r.sig.div4h?'on-div':''}">Uyum. 4s ${r.sig.div4h?'✓':'—'}</span>` : ''}
       <span class="badge ${r.sig.div1d?'on-div':''}">Uyum. 1g ${r.sig.div1d?'✓':'—'}</span>
       <span class="badge ${r.sig.cap?'on-cap':''}">Kapitülasyon ${r.sig.cap?'✓':'—'}</span>
       <span class="badge ${r.sig.rev?'on-rev':''}">Dönüş mumu ${r.sig.rev?'✓':'—'}</span>
@@ -364,7 +378,7 @@ function renderCard(r, currency){
   html+=dv("1s",r.sig.div1h)+dv("4s",r.sig.div4h)+dv("1g",r.sig.div1d);
   if(r.sig.cap) html+=`Kapitülasyon: <b>${r.sig.cap.volX.toFixed(1)}×</b> hacim, ${r.sig.cap.barsAgo} mum önce · `;
   if(r.sig.rev) html+=`Dönüş: <b>${r.sig.rev.volX.toFixed(1)}×</b> hacimli yeşil mum, ${r.sig.rev.barsAgo} mum önce · `;
-  html+=`Güncel 4s RSI: <b>${r.sig.lastRSI!=null?r.sig.lastRSI.toFixed(1):'-'}</b></div></div>`;
+  html+=`Güncel ${r.sig.showIntraday?'4s':'günlük'} RSI: <b>${r.sig.lastRSI!=null?r.sig.lastRSI.toFixed(1):'-'}</b></div></div>`;
   return html;
 }
 
@@ -512,18 +526,23 @@ async function scanStocks(){
 
   await pool(syms, 3, async (sym)=>{
     try{
-      const dr=await fetch(`https://financialmodelingprep.com/api/v3/historical-price-full/${encodeURIComponent(sym)}?apikey=${encodeURIComponent(key)}`);
+      /* FMP /stable/ günlük veri — tek istek/sembol */
+      const dr=await fetch(`https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${encodeURIComponent(sym)}&apikey=${encodeURIComponent(key)}`);
       const dj=await dr.json();
-      const hist=dj && dj.historical;
-      if(!hist || !hist.length){ errors.push(sym+": günlük veri yok (plan/sembol desteği?)"); return; }
-      let ath=0, price=hist[0].close;
-      for(const d of hist){ const hh=(d.high!=null?d.high:d.close); if(hh>ath) ath=hh; }
+      /* yeni format düz dizi; eski format {historical:[...]} — ikisini de destekle */
+      const hist=Array.isArray(dj) ? dj : (dj && dj.historical);
+      if(!hist || !hist.length){
+        const msg=(dj && (dj["Error Message"]||dj.error)) ? " — "+(dj["Error Message"]||dj.error) : "";
+        errors.push(sym+": günlük veri yok (anahtar/plan/sembol?)"+msg); return;
+      }
+      let ath=0, price=+hist[0].close;
+      for(const d of hist){ const hh=(d.high!=null?+d.high:+d.close); if(hh>ath) ath=hh; }
       if(ath<=0){ errors.push(sym+": zirve hesaplanamadı"); return; }
       const dd=1-price/ath;
       if(dd < p.ddMin) return;
       gateCount++;
 
-      /* günlük seri (uyumsuzluk 1g için) — FMP yeni→eski verir */
+      /* günlük seri — FMP yeni→eski verir, ters çevir */
       const darr=hist.slice(0,300).reverse();
       const sD={o:[],h:[],l:[],c:[],v:[]};
       for(const d of darr){
@@ -533,23 +552,7 @@ async function scanStocks(){
         sD.c.push(+d.close);
         sD.v.push(+d.volume||0);
       }
-
-      const fetchFmpChart=async (tf)=>{
-        try{
-          const r=await fetch(`https://financialmodelingprep.com/api/v3/historical-chart/${tf}/${encodeURIComponent(sym)}?apikey=${encodeURIComponent(key)}`);
-          const j=await r.json();
-          if(!Array.isArray(j)||!j.length) return null;
-          const arr=j.slice().reverse();
-          const s={o:[],h:[],l:[],c:[],v:[]};
-          for(const k of arr){ s.o.push(+k.open); s.h.push(+k.high); s.l.push(+k.low); s.c.push(+k.close); s.v.push(+k.volume||0); }
-          return s;
-        }catch(e){ return null; }
-      };
-
-      const [s4h,s1h]=await Promise.all([fetchFmpChart("4hour"), fetchFmpChart("1hour")]);
-      if(!s4h){ errors.push(sym+": 4 saatlik veri yok (BIST / plan kısıtı olabilir)"); return; }
-      if(!s1h) errors.push(sym+": 1 saatlik veri alınamadı, 1s uyumsuzluğu atlandı");
-      const sig=analyzeAll(s1h,s4h,sD,p);
+      const sig=analyzeDaily(sD,p);
       if(sig && sig.score>=1){
         results.push({symbol:sym, price, ath, dd, sig});
       }
