@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0C1017">
+<title>Dip Radar — Kapitülasyon Tarayıcı</title>
+<style>
+:root{
+  --bg:#0C1017;
+  --surface:#141A24;
+  --surface2:#1B2331;
+  --line:#26303F;
+  --text:#E9EDF3;
+  --muted:#8B96A8;
+  --amber:#E3B341;
+  --red:#FF5C48;
+  --green:#3ECF8E;
+  --blue:#6AA7FF;
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Text","Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.45}
+body{padding:env(safe-area-inset-top) 14px calc(env(safe-area-inset-bottom) + 24px)}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+
+header{padding:18px 2px 12px}
+header h1{font-size:22px;font-weight:800;letter-spacing:-.02em}
+header h1 span{color:var(--amber)}
+header p{color:var(--muted);font-size:12.5px;margin-top:2px}
+
+.tabs{display:flex;gap:8px;margin:6px 0 14px}
+.tab{flex:1;text-align:center;padding:10px 0;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);font-weight:600;font-size:14px;cursor:pointer}
+.tab.active{background:var(--surface2);color:var(--text);border-color:var(--amber)}
+
+.panel{display:none}
+.panel.active{display:block}
+
+details.settings{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+details.settings summary{padding:12px 14px;font-weight:600;font-size:14px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details.settings summary::after{content:"▾";color:var(--muted);transition:transform .2s}
+details.settings[open] summary::after{transform:rotate(180deg)}
+.settings-body{padding:0 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field.full{grid-column:1 / -1}
+.field label{font-size:11.5px;color:var(--muted)}
+.field input,.field textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px;width:100%;font-family:inherit}
+.field textarea{min-height:64px;resize:vertical}
+.field input:focus,.field textarea:focus{outline:2px solid var(--amber);outline-offset:-1px}
+
+.hint{font-size:12px;color:var(--muted);margin:8px 2px 12px}
+.hint b{color:var(--text)}
+
+.scanbar{display:flex;gap:10px;margin-bottom:12px}
+button.primary{flex:1;background:var(--amber);color:#161001;border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:800;cursor:pointer}
+button.primary:disabled{opacity:.5}
+button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:12px;padding:14px 16px;font-weight:700;cursor:pointer}
+
+.progress{height:6px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-bottom:6px;display:none}
+.progress.on{display:block}
+.progress i{display:block;height:100%;width:0%;background:var(--amber);transition:width .25s}
+.status{font-size:12.5px;color:var(--muted);min-height:18px;margin-bottom:12px}
+
+.summary{display:none;gap:8px;margin-bottom:12px}
+.summary.on{display:flex}
+.stat{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:20px;font-weight:800}
+.stat span{font-size:11px;color:var(--muted)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.card.full-match{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
+.card-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.card-top .sym{font-weight:800;font-size:17px}
+.card-top .price{color:var(--muted);font-size:13px}
+.fullmatch-tag{font-size:10px;font-weight:800;color:#161001;background:var(--amber);border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px}
+
+.depth{margin:6px 0 10px}
+.depth .track{position:relative;height:10px;border-radius:99px;background:linear-gradient(90deg,var(--green),var(--amber) 55%,var(--red));opacity:.9}
+.depth .marker{position:absolute;top:-4px;width:3px;height:18px;background:#fff;border-radius:2px;box-shadow:0 0 0 2px var(--bg)}
+.depth .labels{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:5px}
+
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.badge{font-size:11.5px;font-weight:700;padding:5px 9px;border-radius:8px;border:1px solid var(--line);color:var(--muted);background:var(--bg)}
+.badge.on-div{color:var(--blue);border-color:var(--blue)}
+.badge.on-cap{color:var(--red);border-color:var(--red)}
+.badge.on-rev{color:var(--green);border-color:var(--green)}
+
+.detail{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6}
+.detail b{color:var(--text);font-weight:600}
+
+.empty{color:var(--muted);text-align:center;padding:26px 10px;font-size:13.5px;display:none}
+.empty.on{display:block}
+.err{color:var(--red);font-size:12px;margin-top:6px}
+.warnbox{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--muted);margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Dip <span>Radar</span></h1>
+  <p>ATH'den derin düşüş · 4s RSI pozitif uyumsuzluk · kapitülasyon · hacimli dönüş mumu</p>
+</header>
+
+<div class="tabs">
+  <div class="tab active" id="tab-crypto" onclick="switchTab('crypto')">Kripto (Binance)</div>
+  <div class="tab" id="tab-stock" onclick="switchTab('stock')">Hisse (FMP)</div>
+</div>
+
+<!-- ================= KRİPTO ================= -->
+<div class="panel active" id="panel-crypto">
+
+  <details class="settings">
+    <summary>Tarama ayarları</summary>
+    <div class="settings-body">
+      <div class="field"><label>ATH'den düşüş eşiği (% ve üzeri)</label><input type="number" id="c-dd" value="75" min="10" max="99"></div>
+      <div class="field"><label>Taranacak coin sayısı (hacme göre)</label><input type="number" id="c-topn" value="200" min="20" max="400"></div>
+      <div class="field"><label>RSI periyodu</label><input type="number" id="c-rsip" value="14" min="5" max="30"></div>
+      <div class="field"><label>Uyumsuzluk: 1. dip RSI üst sınırı</label><input type="number" id="c-rsimax" value="45" min="20" max="60"></div>
+      <div class="field"><label>Uyumsuzluk arama penceresi (mum)</label><input type="number" id="c-lb" value="60" min="20" max="150"></div>
+      <div class="field"><label>Son dip en çok kaç mum önce</label><input type="number" id="c-recent" value="15" min="3" max="40"></div>
+      <div class="field"><label>Kapitülasyon hacim çarpanı</label><input type="number" id="c-capv" value="3" min="1.5" max="10" step="0.5"></div>
+      <div class="field"><label>Kapitülasyon penceresi (mum)</label><input type="number" id="c-capw" value="30" min="5" max="80"></div>
+      <div class="field"><label>Dönüş mumu hacim çarpanı</label><input type="number" id="c-revv" value="2" min="1.2" max="8" step="0.1"></div>
+      <div class="field"><label>Dönüş mumu penceresi (mum)</label><input type="number" id="c-revw" value="6" min="2" max="20"></div>
+    </div>
+  </details>
+
+  <div class="scanbar">
+    <button class="primary" id="c-scanbtn" onclick="scanCrypto()">Kripto taramasını başlat</button>
+    <button class="ghost" id="c-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
+  </div>
+
+  <div class="progress" id="c-prog"><i id="c-progbar"></i></div>
+  <div class="status" id="c-status"></div>
+
+  <div class="summary" id="c-summary">
+    <div class="stat"><b id="c-s-scanned">0</b><span>tarandı</span></div>
+    <div class="stat"><b id="c-s-gate">0</b><span>%eşik altında</span></div>
+    <div class="stat"><b id="c-s-signal">0</b><span>sinyalli</span></div>
+    <div class="stat"><b id="c-s-full">0</b><span>tam eşleşme</span></div>
+  </div>
+
+  <div id="c-results"></div>
+  <div class="empty" id="c-empty">Kriterlere uyan sembol bulunamadı. Eşikleri gevşetmeyi dene (ör. düşüş %60, hacim çarpanı 2).</div>
+</div>
+
+<!-- ================= HİSSE ================= -->
+<div class="panel" id="panel-stock">
+
+  <div class="warnbox">
+    Hisse tarafı <b>FMP API anahtarı</b> gerektirir (financialmodelingprep.com — ücretsiz plan günde 250 istek). BIST için 4 saatlik veri desteği plana göre değişebilir; desteklenmeyen semboller hata olarak listelenir. ATH, FMP'nin verdiği geçmişle sınırlıdır (~5 yıl).
+  </div>
+
+  <details class="settings" open>
+    <summary>Anahtar, liste ve ayarlar</summary>
+    <div class="settings-body">
+      <div class="field full"><label>FMP API anahtarı</label><input type="password" id="s-key" placeholder="apikey"></div>
+      <div class="field full"><label>Sembol listesi (virgülle; BIST için .IS ekle)</label><textarea id="s-list">SAHOL.IS, THYAO.IS, ASELS.IS, SISE.IS, KCHOL.IS, TABGD.IS, AAPL, NVDA, TSLA, AMD, PLTR, COIN</textarea></div>
+      <div class="field"><label>Zirveden düşüş eşiği (% ve üzeri)</label><input type="number" id="s-dd" value="75" min="10" max="99"></div>
+      <div class="field"><label>RSI periyodu</label><input type="number" id="s-rsip" value="14" min="5" max="30"></div>
+      <div class="field"><label>Uyumsuzluk: 1. dip RSI üst sınırı</label><input type="number" id="s-rsimax" value="45" min="20" max="60"></div>
+      <div class="field"><label>Uyumsuzluk arama penceresi (mum)</label><input type="number" id="s-lb" value="60" min="20" max="150"></div>
+      <div class="field"><label>Son dip en çok kaç mum önce</label><input type="number" id="s-recent" value="15" min="3" max="40"></div>
+      <div class="field"><label>Kapitülasyon hacim çarpanı</label><input type="number" id="s-capv" value="3" min="1.5" max="10" step="0.5"></div>
+      <div class="field"><label>Dönüş mumu hacim çarpanı</label><input type="number" id="s-revv" value="2" min="1.2" max="8" step="0.1"></div>
+      <div class="field"><label>Dönüş mumu penceresi (mum)</label><input type="number" id="s-revw" value="6" min="2" max="20"></div>
+    </div>
+  </details>
+
+  <div class="scanbar">
+    <button class="primary" id="s-scanbtn" onclick="scanStocks()">Hisse taramasını başlat</button>
+    <button class="ghost" id="s-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
+  </div>
+
+  <div class="progress" id="s-prog"><i id="s-progbar"></i></div>
+  <div class="status" id="s-status"></div>
+
+  <div class="summary" id="s-summary">
+    <div class="stat"><b id="s-s-scanned">0</b><span>tarandı</span></div>
+    <div class="stat"><b id="s-s-gate">0</b><span>%eşik altında</span></div>
+    <div class="stat"><b id="s-s-signal">0</b><span>sinyalli</span></div>
+    <div class="stat"><b id="s-s-full">0</b><span>tam eşleşme</span></div>
+  </div>
+
+  <div id="s-results"></div>
+  <div class="empty" id="s-empty">Kriterlere uyan sembol bulunamadı.</div>
+  <div id="s-errors"></div>
+</div>
+
+<script>
+/* ---------- yardımcılar ---------- */
+const $ = id => document.getElementById(id);
+let abortFlag = false;
+
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("dipradar:"+k); return v===null? d : v; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("dipradar:"+k, v); }catch(e){} }
+};
+
+function switchTab(t){
+  ["crypto","stock"].forEach(x=>{
+    $("tab-"+x).classList.toggle("active", x===t);
+    $("panel-"+x).classList.toggle("active", x===t);
+  });
+}
+
+function fmtPrice(p){
+  if(p>=1000) return p.toLocaleString("tr-TR",{maximumFractionDigits:2});
+  if(p>=1) return p.toFixed(3);
+  if(p>=0.01) return p.toFixed(5);
+  return p.toPrecision(4);
+}
+
+/* ---------- indikatörler ---------- */
+function computeRSI(closes, period){
+  const out = new Array(closes.length).fill(null);
+  if(closes.length <= period) return out;
+  let g=0,l=0;
+  for(let i=1;i<=period;i++){ const d=closes[i]-closes[i-1]; if(d>0)g+=d; else l-=d; }
+  let ag=g/period, al=l/period;
+  out[period] = al===0?100:100-100/(1+ag/al);
+  for(let i=period+1;i<closes.length;i++){
+    const d=closes[i]-closes[i-1];
+    ag=(ag*(period-1)+Math.max(d,0))/period;
+    al=(al*(period-1)+Math.max(-d,0))/period;
+    out[i] = al===0?100:100-100/(1+ag/al);
+  }
+  return out;
+}
+
+function computeATR(h,l,c,period){
+  const out = new Array(c.length).fill(null);
+  if(c.length < period+1) return out;
+  const tr=[h[0]-l[0]];
+  for(let i=1;i<c.length;i++)
+    tr.push(Math.max(h[i]-l[i], Math.abs(h[i]-c[i-1]), Math.abs(l[i]-c[i-1])));
+  let s=0; for(let i=0;i<period;i++) s+=tr[i];
+  out[period-1]=s/period;
+  for(let i=period;i<c.length;i++) out[i]=(out[i-1]*(period-1)+tr[i])/period;
+  return out;
+}
+
+function volSMA(v, period){
+  const out = new Array(v.length).fill(null);
+  let s=0;
+  for(let i=0;i<v.length;i++){
+    s+=v[i];
+    if(i>=period) s-=v[i-period];
+    if(i>=period-1) out[i]=s/period;
+  }
+  return out;
+}
+
+/* pozitif (boğa) RSI uyumsuzluğu: fiyat daha düşük dip, RSI daha yüksek dip */
+function bullishDivergence(lows, rsi, p){
+  const n=lows.length, k=3;
+  const piv=[];
+  const start=Math.max(k, n-p.lookback);
+  for(let i=start;i<n-k;i++){
+    let ok=true;
+    for(let j=i-k;j<=i+k;j++){ if(j===i)continue; if(lows[j]<=lows[i]){ok=false;break;} }
+    if(ok && rsi[i]!=null) piv.push(i);
+  }
+  if(piv.length<2) return null;
+  const p2=piv[piv.length-1];
+  if(n-1-p2 > p.recent) return null;
+  for(let a=piv.length-2;a>=0;a--){
+    const p1=piv[a];
+    if(lows[p2] < lows[p1] && rsi[p2] > rsi[p1]+1 && rsi[p1] < p.rsiMax){
+      return {rsi1:rsi[p1], rsi2:rsi[p2], barsAgo:n-1-p2};
+    }
+  }
+  return null;
+}
+
+/* kapitülasyon: kırmızı + hacim patlaması + geniş aralık */
+function findCapitulation(o,h,l,c,v,atr,vs,p){
+  const n=c.length;
+  for(let i=n-1;i>=Math.max(20,n-p.capWindow);i--){
+    if(vs[i]==null||atr[i]==null) continue;
+    if(c[i]<o[i] && v[i]>=p.capVolMult*vs[i] && (h[i]-l[i])>=2*atr[i]){
+      return {barsAgo:n-1-i, volX:(v[i]/vs[i])};
+    }
+  }
+  return null;
+}
+
+/* hacimli yeşil dönüş mumu: yeşil + hacim + aralığın üst yarısında kapanış */
+function findReversal(o,h,l,c,v,vs,p){
+  const n=c.length;
+  for(let i=n-1;i>=Math.max(20,n-p.revWindow);i--){
+    if(vs[i]==null) continue;
+    const rng=h[i]-l[i];
+    if(rng<=0) continue;
+    if(c[i]>o[i] && v[i]>=p.revVolMult*vs[i] && (c[i]-l[i])/rng>=0.55){
+      return {barsAgo:n-1-i, volX:(v[i]/vs[i])};
+    }
+  }
+  return null;
+}
+
+function divergenceOn(series, p){
+  if(!series || series.c.length<40) return null;
+  const rsi=computeRSI(series.c, p.rsiPeriod);
+  return bullishDivergence(series.l, rsi, p);
+}
+
+/* s1h/s1d: yalnızca uyumsuzluk · s4h: uyumsuzluk + kapitülasyon + dönüş mumu */
+function analyzeAll(s1h, s4h, s1d, p){
+  if(!s4h || s4h.c.length<40) return null;
+  const {o,h,l,c,v}=s4h;
+  const rsi=computeRSI(c,p.rsiPeriod);
+  const atr=computeATR(h,l,c,14);
+  const vs=volSMA(v,20);
+  const div1h=divergenceOn(s1h,p);
+  const div4h=bullishDivergence(l,rsi,p);
+  const div1d=divergenceOn(s1d,p);
+  const cap=findCapitulation(o,h,l,c,v,atr,vs,p);
+  const rev=findReversal(o,h,l,c,v,vs,p);
+  const divCount=(div1h?1:0)+(div4h?1:0)+(div1d?1:0);
+  const score=(divCount>0?1:0)+(cap?1:0)+(rev?1:0);
+  return {div1h,div4h,div1d,divCount,cap,rev,score,lastRSI:rsi[rsi.length-1]};
+}
+
+/* ---------- eşzamanlılık havuzu ---------- */
+async function pool(items, limit, worker){
+  let idx=0;
+  const runners=Array.from({length:Math.min(limit,items.length)},async()=>{
+    while(idx<items.length && !abortFlag){
+      const my=idx++;
+      await worker(items[my], my);
+    }
+  });
+  await Promise.all(runners);
+}
+
+function stopScan(){ abortFlag=true; }
+
+/* ---------- kart çizimi ---------- */
+function renderCard(r, currency){
+  const full = r.sig.score===3;
+  const ddPct=(r.dd*100);
+  const pos=Math.min(99, Math.max(1, ddPct));
+  let html = `<div class="card ${full?'full-match':''}">
+    <div class="card-top">
+      <div class="sym">${r.symbol}${full?'<span class="fullmatch-tag">TAM EŞLEŞME</span>':''}</div>
+      <div class="price mono">${fmtPrice(r.price)} ${currency}</div>
+    </div>
+    <div class="depth">
+      <div class="track"><span class="marker" style="left:${pos}%"></span></div>
+      <div class="labels"><span>ATH: ${fmtPrice(r.ath)}</span><span class="mono">zirveden −%${ddPct.toFixed(1)}</span></div>
+    </div>
+    <div class="badges">
+      <span class="badge ${r.sig.div1h?'on-div':''}">Uyum. 1s ${r.sig.div1h?'✓':'—'}</span>
+      <span class="badge ${r.sig.div4h?'on-div':''}">Uyum. 4s ${r.sig.div4h?'✓':'—'}</span>
+      <span class="badge ${r.sig.div1d?'on-div':''}">Uyum. 1g ${r.sig.div1d?'✓':'—'}</span>
+      <span class="badge ${r.sig.cap?'on-cap':''}">Kapitülasyon ${r.sig.cap?'✓':'—'}</span>
+      <span class="badge ${r.sig.rev?'on-rev':''}">Dönüş mumu ${r.sig.rev?'✓':'—'}</span>
+    </div>
+    <div class="detail">`;
+  const dv=(tag,d)=> d?`Uyumsuzluk ${tag}: RSI dip <b>${d.rsi1.toFixed(1)} → ${d.rsi2.toFixed(1)}</b> (${d.barsAgo} mum önce) · `:"";
+  html+=dv("1s",r.sig.div1h)+dv("4s",r.sig.div4h)+dv("1g",r.sig.div1d);
+  if(r.sig.cap) html+=`Kapitülasyon: <b>${r.sig.cap.volX.toFixed(1)}×</b> hacim, ${r.sig.cap.barsAgo} mum önce · `;
+  if(r.sig.rev) html+=`Dönüş: <b>${r.sig.rev.volX.toFixed(1)}×</b> hacimli yeşil mum, ${r.sig.rev.barsAgo} mum önce · `;
+  html+=`Güncel 4s RSI: <b>${r.sig.lastRSI!=null?r.sig.lastRSI.toFixed(1):'-'}</b></div></div>`;
+  return html;
+}
+
+function renderResults(list, prefix, currency){
+  list.sort((a,b)=> b.sig.score-a.sig.score || b.sig.divCount-a.sig.divCount || b.dd-a.dd);
+  const box=$(prefix+"-results");
+  box.innerHTML=list.map(r=>renderCard(r,currency)).join("");
+  $(prefix+"-empty").classList.toggle("on", list.length===0);
+  $(prefix+"-s-signal").textContent=list.length;
+  $(prefix+"-s-full").textContent=list.filter(r=>r.sig.score===3).length;
+  $(prefix+"-summary").classList.add("on");
+}
+
+/* ---------- KRİPTO (Binance) ---------- */
+async function fetchBinanceKlines(symbol, interval, limit){
+  try{
+    const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+    if(!r.ok) return null;
+    const kk=await r.json();
+    if(!Array.isArray(kk)||!kk.length) return null;
+    const o=[],h=[],l=[],c=[],v=[];
+    for(const k of kk){ o.push(+k[1]); h.push(+k[2]); l.push(+k[3]); c.push(+k[4]); v.push(+k[5]); }
+    return {o,h,l,c,v};
+  }catch(e){ return null; }
+}
+
+const STABLES=new Set(["USDCUSDT","FDUSDUSDT","TUSDUSDT","USDPUSDT","EURUSDT","DAIUSDT","BUSDUSDT","USDEUSDT","AEURUSDT","EURIUSDT","XUSDUSDT","USD1USDT"]);
+
+function cryptoParams(){
+  return {
+    ddMin: parseFloat($("c-dd").value)/100,
+    topN: parseInt($("c-topn").value),
+    rsiPeriod: parseInt($("c-rsip").value),
+    rsiMax: parseFloat($("c-rsimax").value),
+    lookback: parseInt($("c-lb").value),
+    recent: parseInt($("c-recent").value),
+    capVolMult: parseFloat($("c-capv").value),
+    capWindow: parseInt($("c-capw").value),
+    revVolMult: parseFloat($("c-revv").value),
+    revWindow: parseInt($("c-revw").value)
+  };
+}
+
+async function scanCrypto(){
+  abortFlag=false;
+  const p=cryptoParams();
+  const btn=$("c-scanbtn"), stop=$("c-stopbtn");
+  btn.disabled=true; stop.style.display="block";
+  $("c-prog").classList.add("on"); $("c-progbar").style.width="0%";
+  $("c-results").innerHTML=""; $("c-empty").classList.remove("on");
+  $("c-summary").classList.remove("on");
+  const status=$("c-status");
+  const results=[];
+  let gateCount=0, done=0;
+
+  try{
+    status.textContent="Sembol listesi alınıyor…";
+    const res=await fetch("https://api.binance.com/api/v3/ticker/24hr");
+    if(!res.ok) throw new Error("Binance ticker hatası: "+res.status);
+    const tickers=await res.json();
+    const universe=tickers
+      .filter(t=>t.symbol.endsWith("USDT"))
+      .filter(t=>!STABLES.has(t.symbol))
+      .filter(t=>!/(UP|DOWN|BULL|BEAR)USDT$/.test(t.symbol))
+      .filter(t=>parseFloat(t.quoteVolume)>0)
+      .sort((a,b)=>parseFloat(b.quoteVolume)-parseFloat(a.quoteVolume))
+      .slice(0,p.topN)
+      .map(t=>({symbol:t.symbol, price:parseFloat(t.lastPrice)}));
+
+    await pool(universe, 6, async (u)=>{
+      try{
+        const mr=await fetch(`https://api.binance.com/api/v3/klines?symbol=${u.symbol}&interval=1M&limit=1000`);
+        if(!mr.ok) return;
+        const mk=await mr.json();
+        if(!mk.length) return;
+        let ath=0;
+        for(const k of mk){ const h=parseFloat(k[2]); if(h>ath) ath=h; }
+        if(ath<=0) return;
+        const dd=1-u.price/ath;
+        if(dd < p.ddMin) return;
+        gateCount++;
+
+        const [s4h,s1h,s1d]=await Promise.all([
+          fetchBinanceKlines(u.symbol,"4h",300),
+          fetchBinanceKlines(u.symbol,"1h",300),
+          fetchBinanceKlines(u.symbol,"1d",300)
+        ]);
+        const sig=analyzeAll(s1h,s4h,s1d,p);
+        if(sig && sig.score>=1){
+          results.push({symbol:u.symbol.replace("USDT","/USDT"), price:u.price, ath, dd, sig});
+        }
+      }catch(e){ /* tek sembol hatası taramayı durdurmasın */ }
+      finally{
+        done++;
+        $("c-progbar").style.width=(done/universe.length*100).toFixed(1)+"%";
+        status.textContent=`${u.symbol} · ${done}/${universe.length}`;
+        $("c-s-scanned").textContent=done;
+        $("c-s-gate").textContent=gateCount;
+      }
+    });
+
+    status.textContent=abortFlag?"Tarama durduruldu.":"Tarama tamamlandı.";
+    renderResults(results,"c","USDT");
+  }catch(e){
+    status.innerHTML=`<span class="err">Hata: ${e.message}. Bu dosyayı Safari'de açtığından ve internet bağlantısı olduğundan emin ol.</span>`;
+  }finally{
+    btn.disabled=false; stop.style.display="none";
+    $("c-prog").classList.remove("on");
+  }
+}
+
+/* ---------- HİSSE (FMP) ---------- */
+function stockParams(){
+  return {
+    ddMin: parseFloat($("s-dd").value)/100,
+    rsiPeriod: parseInt($("s-rsip").value),
+    rsiMax: parseFloat($("s-rsimax").value),
+    lookback: parseInt($("s-lb").value),
+    recent: parseInt($("s-recent").value),
+    capVolMult: parseFloat($("s-capv").value),
+    capWindow: 30,
+    revVolMult: parseFloat($("s-revv").value),
+    revWindow: parseInt($("s-revw").value)
+  };
+}
+
+async function scanStocks(){
+  abortFlag=false;
+  const key=$("s-key").value.trim();
+  if(!key){ $("s-status").innerHTML='<span class="err">FMP API anahtarı gerekli.</span>'; return; }
+  store.set("fmpkey", key);
+  const syms=$("s-list").value.split(",").map(s=>s.trim().toUpperCase()).filter(Boolean);
+  store.set("watchlist", $("s-list").value);
+  if(!syms.length){ $("s-status").innerHTML='<span class="err">Sembol listesi boş.</span>'; return; }
+
+  const p=stockParams();
+  const btn=$("s-scanbtn"), stop=$("s-stopbtn");
+  btn.disabled=true; stop.style.display="block";
+  $("s-prog").classList.add("on"); $("s-progbar").style.width="0%";
+  $("s-results").innerHTML=""; $("s-errors").innerHTML="";
+  $("s-empty").classList.remove("on"); $("s-summary").classList.remove("on");
+  const status=$("s-status");
+  const results=[], errors=[];
+  let gateCount=0, done=0;
+
+  await pool(syms, 3, async (sym)=>{
+    try{
+      const dr=await fetch(`https://financialmodelingprep.com/api/v3/historical-price-full/${encodeURIComponent(sym)}?apikey=${encodeURIComponent(key)}`);
+      const dj=await dr.json();
+      const hist=dj && dj.historical;
+      if(!hist || !hist.length){ errors.push(sym+": günlük veri yok (plan/sembol desteği?)"); return; }
+      let ath=0, price=hist[0].close;
+      for(const d of hist){ const hh=(d.high!=null?d.high:d.close); if(hh>ath) ath=hh; }
+      if(ath<=0){ errors.push(sym+": zirve hesaplanamadı"); return; }
+      const dd=1-price/ath;
+      if(dd < p.ddMin) return;
+      gateCount++;
+
+      /* günlük seri (uyumsuzluk 1g için) — FMP yeni→eski verir */
+      const darr=hist.slice(0,300).reverse();
+      const sD={o:[],h:[],l:[],c:[],v:[]};
+      for(const d of darr){
+        sD.o.push(+(d.open!=null?d.open:d.close));
+        sD.h.push(+(d.high!=null?d.high:d.close));
+        sD.l.push(+(d.low!=null?d.low:d.close));
+        sD.c.push(+d.close);
+        sD.v.push(+d.volume||0);
+      }
+
+      const fetchFmpChart=async (tf)=>{
+        try{
+          const r=await fetch(`https://financialmodelingprep.com/api/v3/historical-chart/${tf}/${encodeURIComponent(sym)}?apikey=${encodeURIComponent(key)}`);
+          const j=await r.json();
+          if(!Array.isArray(j)||!j.length) return null;
+          const arr=j.slice().reverse();
+          const s={o:[],h:[],l:[],c:[],v:[]};
+          for(const k of arr){ s.o.push(+k.open); s.h.push(+k.high); s.l.push(+k.low); s.c.push(+k.close); s.v.push(+k.volume||0); }
+          return s;
+        }catch(e){ return null; }
+      };
+
+      const [s4h,s1h]=await Promise.all([fetchFmpChart("4hour"), fetchFmpChart("1hour")]);
+      if(!s4h){ errors.push(sym+": 4 saatlik veri yok (BIST / plan kısıtı olabilir)"); return; }
+      if(!s1h) errors.push(sym+": 1 saatlik veri alınamadı, 1s uyumsuzluğu atlandı");
+      const sig=analyzeAll(s1h,s4h,sD,p);
+      if(sig && sig.score>=1){
+        results.push({symbol:sym, price, ath, dd, sig});
+      }
+    }catch(e){ errors.push(sym+": "+e.message); }
+    finally{
+      done++;
+      $("s-progbar").style.width=(done/syms.length*100).toFixed(1)+"%";
+      status.textContent=`${sym} · ${done}/${syms.length}`;
+      $("s-s-scanned").textContent=done;
+      $("s-s-gate").textContent=gateCount;
+    }
+  });
+
+  status.textContent=abortFlag?"Tarama durduruldu.":"Tarama tamamlandı. (Not: zirve, FMP geçmişiyle sınırlıdır — gerçek ATH olmayabilir.)";
+  renderResults(results,"s","");
+  if(errors.length){
+    $("s-errors").innerHTML='<div class="warnbox">'+errors.map(e=>"• "+e).join("<br>")+"</div>";
+  }
+  btn.disabled=false; stop.style.display="none";
+  $("s-prog").classList.remove("on");
+}
+
+/* ---------- kayıtlı değerleri yükle ---------- */
+(function(){
+  const k=store.get("fmpkey",""); if(k) $("s-key").value=k;
+  const w=store.get("watchlist",""); if(w) $("s-list").value=w;
+})();
+</script>
+</body>
+</html>
