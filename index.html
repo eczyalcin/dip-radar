@@ -198,6 +198,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="settings-body" style="padding:0 0 12px">
     <div class="field"><label>Zaman dilimi</label>
       <select id="an-tf" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
+        <option value="15m">15 dakika</option>
         <option value="1h">1 saat</option>
         <option value="4h" selected>4 saat</option>
         <option value="1d">Günlük</option>
@@ -226,7 +227,21 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
     <summary>Anahtar, liste ve ayarlar</summary>
     <div class="settings-body">
       <div class="field full"><label>FMP API anahtarı</label><input type="password" id="s-key" placeholder="apikey"></div>
-      <div class="field full"><label>Sembol listesi (virgülle; BIST için .IS ekle)</label><textarea id="s-list">SAHOL.IS, THYAO.IS, ASELS.IS, SISE.IS, KCHOL.IS, TABGD.IS, AAPL, NVDA, TSLA, AMD, PLTR, COIN</textarea></div>
+      <div class="field full"><label>Hazır paket seç (kutuyu doldurur)</label>
+        <select id="s-pack" onchange="applyPack()" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
+          <option value="">— Manuel —</option>
+          <option value="p1">1 · Growth enkazı / yüksek-beta (~40)</option>
+          <option value="p2">2 · Çin ADR'leri (~15)</option>
+          <option value="p3">3 · Kripto-ilişkili hisseler (~12)</option>
+          <option value="p4">4 · Biyoteknoloji (~25)</option>
+          <option value="p5">5 · Yarı iletken (~20)</option>
+          <option value="p6">6 · EV / temiz enerji (~15)</option>
+          <option value="p7">7 · NASDAQ-100 çekirdek (~40)</option>
+          <option value="p8">8 · S&P 500 likit çekirdek (~150)</option>
+        </select>
+      </div>
+      <div class="field full"><label>Sembol listesi (virgülle; sadece ABD sembolleri)</label><textarea id="s-list">AAPL, NVDA, TSLA, AMD, PLTR, COIN</textarea></div>
+      <div class="field full"><button class="ghost" onclick="clearList()" style="width:100%;padding:10px">Listeyi temizle</button></div>
       <div class="field"><label>Zirveden düşüş eşiği (% ve üzeri)</label><input type="number" id="s-dd" value="50" min="10" max="99"></div>
       <div class="field"><label>RSI periyodu</label><input type="number" id="s-rsip" value="14" min="5" max="30"></div>
       <div class="field"><label>Uyumsuzluk: 1. dip RSI üst sınırı</label><input type="number" id="s-rsimax" value="45" min="20" max="60"></div>
@@ -1025,6 +1040,29 @@ async function analyzeCoin(){
   }finally{
     btn.disabled=false;
   }
+}
+
+/* ---------- hisse hazır paketleri ---------- */
+const STOCK_PACKS={
+  p1:["PLTR","SOFI","RIVN","LCID","RBLX","U","SNAP","PINS","HOOD","COIN","AFRM","UPST","DKNG","ROKU","CHWY","DASH","ABNB","SHOP","NET","DDOG","SNOW","CRWD","ZS","TWLO","DOCU","ZM","PTON","CVNA","OPEN","FUBO","BYND","PLUG","GME","AMC","PATH","TTD","MDB","OKTA","DOCN","RUN"],
+  p2:["BABA","JD","PDD","NIO","XPEV","LI","BIDU","BILI","TAL","EDU","TCOM","IQ","YMM","TME","ZTO"],
+  p3:["COIN","MARA","RIOT","MSTR","CLSK","HUT","BITF","BTBT","CIFR","WULF","IREN","CORZ"],
+  p4:["MRNA","BNTX","NVAX","PFE","BIIB","GILD","VRTX","REGN","AMGN","ILMN","CRSP","NTLA","BEAM","EDIT","EXEL","SRPT","BMRN","ALNY","IONS","RARE","FOLD","ARWR","HALO","INCY","MRTX"],
+  p5:["NVDA","AMD","INTC","MU","QCOM","AVGO","ASML","AMAT","LRCX","ON","MRVL","TXN","ADI","NXPI","MCHP","SWKS","QRVO","TER","ENTG","KLAC"],
+  p6:["RIVN","LCID","CHPT","PLUG","ENPH","FSLR","RUN","NIO","XPEV","BE","SEDG","NOVA","ARRY","STEM","QS"],
+  p7:["AAPL","MSFT","GOOGL","GOOG","AMZN","NVDA","META","TSLA","AVGO","PEP","COST","ADBE","CSCO","NFLX","AMD","TMUS","INTC","QCOM","INTU","AMAT","TXN","ISRG","BKNG","HON","VRTX","ADP","REGN","MU","LRCX","PANW","SBUX","GILD","MDLZ","ADI","PYPL","KLAC","SNPS","CDNS","MRVL","ORLY"],
+  p8:["AAPL","MSFT","AMZN","GOOGL","GOOG","META","NVDA","TSLA","JPM","V","MA","UNH","HD","PG","JNJ","ABBV","WMT","LLY","XOM","CVX","KO","PEP","COST","MRK","BAC","AVGO","ADBE","CRM","ACN","MCD","TMO","ABT","LIN","CSCO","DHR","WFC","DIS","INTC","VZ","CMCSA","TXN","NKE","PM","NEE","RTX","UNP","LOW","HON","SPGI","INTU","IBM","GE","CAT","AMGN","QCOM","BA","GS","ISRG","PLD","NOW","DE","AMD","BKNG","AXP","SBUX","GILD","MDLZ","ADI","T","BLK","MMC","SYK","VRTX","LMT","TJX","REGN","CVS","ZTS","MO","C","SO","PGR","DUK","BSX","CB","MU","EQIX","AON","CL","ITW","APD","WM","MCK","SHW","CME","MMM","GD","EOG","NSC","FCX","PYPL","HUM","EMR","PSX","MAR","MCO","ORLY","ROP","ADP","KLAC","NXPI","PH","MSI","AEP","TT","CTAS","MPC","COF","TDG","F","GM","PNC","USB","DAL","UAL","CCL","NCLH","RCL","KHC","KMB","GIS","HSY","DG","DLTR","ROST","ULTA","BBY","EBAY","WBD","UBER","ABNB","DDOG","SNOW","PANW","LRCX","SNPS","CDNS","MELI","PDD"]
+};
+function applyPack(){
+  const k=$("s-pack").value;
+  if(!k || !STOCK_PACKS[k]) return;
+  $("s-list").value=STOCK_PACKS[k].join(", ");
+  store.set("watchlist", $("s-list").value);
+}
+function clearList(){
+  $("s-list").value="";
+  $("s-pack").value="";
+  store.set("watchlist","");
 }
 
 /* ---------- kayıtlı değerleri yükle ---------- */
