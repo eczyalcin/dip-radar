@@ -163,7 +163,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
           <option value="1h">1 saat</option>
         </select>
       </div>
-      <div class="field"><label>Taranacak coin sayısı (hacme göre)</label><input type="number" id="sc-topn" value="150" min="10" max="400"></div>
+      <div class="field"><label>Taranacak coin sayısı (hacme göre)</label><input type="number" id="sc-topn" value="700" min="10" max="700"></div>
       <div class="field"><label>Hacim patlama çarpanı (≥)</label><input type="number" id="sc-volx" value="2.5" min="1.2" max="10" step="0.1"></div>
       <div class="field"><label>Fiyat son mum min. artış (%)</label><input type="number" id="sc-price" value="0.4" min="0" max="5" step="0.1"></div>
       <div class="field"><label>OI min. artış (%)</label><input type="number" id="sc-oi" value="1.0" min="0" max="10" step="0.1"></div>
@@ -190,6 +190,29 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 
   <div id="sc-results"></div>
   <div class="empty" id="sc-empty">Scalping kriterine uyan coin yok. Hacim çarpanını veya skor eşiğini düşürmeyi dene.</div>
+
+  <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
+  <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Coin <span style="color:var(--amber)">analiz</span></h1>
+  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Tek coin · çoklu metrik · kural-tabanlı Long/Short skoru (kâr garantisi değil)</p>
+
+  <div class="settings-body" style="padding:0 0 12px">
+    <div class="field"><label>Zaman dilimi</label>
+      <select id="an-tf" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
+        <option value="1h">1 saat</option>
+        <option value="4h" selected>4 saat</option>
+        <option value="1d">Günlük</option>
+        <option value="1w">Haftalık</option>
+      </select>
+    </div>
+    <div class="field"><label>Coin (ör. BTC, ETH, SOL)</label><input type="text" id="an-sym" placeholder="BTC" autocapitalize="characters"></div>
+  </div>
+
+  <div class="scanbar">
+    <button class="primary" id="an-btn" onclick="analyzeCoin()">Coini analiz et</button>
+  </div>
+
+  <div class="status" id="an-status"></div>
+  <div id="an-result"></div>
 </div>
 
 <!-- ================= HİSSE ================= -->
@@ -798,6 +821,209 @@ async function scanScalping(){
   }finally{
     btn.disabled=false; stop.style.display="none";
     $("sc-prog").classList.remove("on");
+  }
+}
+
+/* ================= COIN ANALİZ ================= */
+function ema(arr, period){
+  const out=new Array(arr.length).fill(null);
+  if(arr.length<period) return out;
+  const k=2/(period+1);
+  let e=arr.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  out[period-1]=e;
+  for(let i=period;i<arr.length;i++){ e=arr[i]*k+e*(1-k); out[i]=e; }
+  return out;
+}
+function sma(arr, period, idx){
+  if(idx==null) idx=arr.length-1;
+  if(idx<period-1) return null;
+  let s=0; for(let i=idx-period+1;i<=idx;i++) s+=arr[i];
+  return s/period;
+}
+function macd(c){
+  const e12=ema(c,12), e26=ema(c,26);
+  const line=c.map((_,i)=> (e12[i]!=null&&e26[i]!=null)? e12[i]-e26[i] : null);
+  const valid=line.filter(x=>x!=null);
+  const sig=ema(valid,9);
+  const offset=line.length-valid.length;
+  const signal=new Array(line.length).fill(null);
+  for(let i=0;i<valid.length;i++) signal[offset+i]=sig[i];
+  const n=c.length-1;
+  const m=line[n], s=signal[n];
+  const mPrev=line[n-1], sPrev=signal[n-1];
+  return {line:m, signal:s, hist:(m!=null&&s!=null)?m-s:null,
+          histPrev:(mPrev!=null&&sPrev!=null)?mPrev-sPrev:null};
+}
+function bollinger(c, period){
+  const n=c.length-1;
+  const mid=sma(c,period,n);
+  if(mid==null) return null;
+  let v=0; for(let i=n-period+1;i<=n;i++) v+=(c[i]-mid)**2;
+  const sd=Math.sqrt(v/period);
+  return {upper:mid+2*sd, mid, lower:mid-2*sd, price:c[n]};
+}
+
+/* CoinGecko sektör momentumu — zarif düşer */
+async function fetchSectorMomentum(symBase){
+  try{
+    const sr=await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(symBase)}`);
+    if(!sr.ok) return null;
+    const sj=await sr.json();
+    if(!sj.coins||!sj.coins.length) return null;
+    const exact=sj.coins.find(c=>c.symbol && c.symbol.toUpperCase()===symBase.toUpperCase());
+    const id=(exact||sj.coins[0]).id;
+    const cr=await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false`);
+    if(!cr.ok) return null;
+    const cj=await cr.json();
+    const cats=(cj.categories||[]).filter(Boolean);
+    if(!cats.length) return {categories:[], momentum:null};
+    const catr=await fetch("https://api.coingecko.com/api/v3/coins/categories");
+    if(!catr.ok) return {categories:cats, momentum:null};
+    const catj=await catr.json();
+    const matched=catj.filter(x=>cats.includes(x.name));
+    if(!matched.length) return {categories:cats.slice(0,3), momentum:null};
+    const avg=matched.reduce((a,b)=>a+(b.market_cap_change_24h||0),0)/matched.length;
+    const top=matched.sort((a,b)=>Math.abs(b.market_cap)-Math.abs(a.market_cap))[0];
+    return {categories:[top.name], momentum:avg};
+  }catch(e){ return null; }
+}
+
+function scoreBar(label, longP, shortP){
+  return `<div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin:2px 0"><span>${label}</span><span class="mono">L+${longP} · S+${shortP}</span></div>`;
+}
+
+async function analyzeCoin(){
+  const raw=$("an-sym").value.trim().toUpperCase().replace("/","");
+  if(!raw){ $("an-status").innerHTML='<span class="err">Coin gir (ör. BTC).</span>'; return; }
+  const base=raw.replace(/USDT$/,"");
+  const symbol=base+"USDT";
+  const tf=$("an-tf").value;
+  const btn=$("an-btn"); btn.disabled=true;
+  $("an-result").innerHTML=""; $("an-status").textContent=`${symbol} analiz ediliyor…`;
+
+  try{
+    const spot=await fetchKlinesTB(SPOT, symbol, tf, 260);
+    if(!spot || spot.c.length<60){ $("an-status").innerHTML=`<span class="err">${symbol} için yeterli veri yok. Sembolü kontrol et.</span>`; btn.disabled=false; return; }
+    const c=spot.c, v=spot.v;
+    const n=c.length-1, price=c[n];
+
+    const rsiArr=computeRSI(c,14); const rsi=rsiArr[n];
+    const mac=macd(c);
+    const boll=bollinger(c,20);
+    const ma50=sma(c,50), ma100=sma(c,100), ma200=sma(c,200);
+    const volAvg14=sma(v,14); const volNow=v[n]; const volAbove=volAvg14!=null && volNow>volAvg14;
+    const priceChg=c.length>=2?(c[n]/c[n-1]-1):0;
+
+    /* futures: CVD proxy + OI + funding */
+    const fut=await fetchKlinesTB(FUT, symbol, tf, 40);
+    const bp=fut?buyerPressure(fut,3):(spot?buyerPressure(spot,3):{net:0,positive:false});
+    const cvdPos=bp.positive;
+    const oiPeriod=(tf==="1h")?"1h":(tf==="1w"?"1d":(tf==="5m"?"5m":(tf==="1d"?"1d":"15m")));
+    const oi=fut?await fetchOIchange(symbol, oiPeriod):null;
+    const funding=fut?await fetchFunding(symbol):null;
+
+    const sector=await fetchSectorMomentum(base);
+
+    /* -------- kural-tabanlı skor -------- */
+    let L=0,S=0; const rows=[];
+    // 1) MA trend stack (max 25)
+    let above=0; [ma50,ma100,ma200].forEach(m=>{ if(m!=null && price>m) above++; });
+    let maL=Math.round(25*above/3), maS=Math.round(25*(3-above)/3);
+    if(ma50!=null&&ma100!=null&&ma200!=null){
+      if(ma50>ma100&&ma100>ma200&&price>ma50){ maL=25; maS=0; }
+      if(ma50<ma100&&ma100<ma200&&price<ma50){ maS=25; maL=0; }
+    }
+    L+=maL; S+=maS; rows.push(scoreBar("MA dizilimi (50/100/200)",maL,maS));
+    // 2) RSI (max 15)
+    let rL=0,rS=0;
+    if(rsi!=null){
+      if(rsi>=55&&rsi<=70){rL=15;} else if(rsi>=50){rL=8;}
+      else if(rsi>70&&rsi<=80){rL=6;rS=6;} else if(rsi>80){rS=12;}
+      else if(rsi>=45){rS=8;} else if(rsi>=30){rS=15;}
+      else if(rsi>=20){rL=6;rS=6;} else {rL=12;}
+    }
+    L+=rL;S+=rS; rows.push(scoreBar(`RSI ${rsi!=null?rsi.toFixed(1):'-'}`,rL,rS));
+    // 3) MACD (max 15)
+    let mL=0,mS=0;
+    if(mac.hist!=null){
+      const rising=mac.histPrev!=null && mac.hist>mac.histPrev;
+      if(mac.line>mac.signal){ mL=rising?15:10; } else { mS=(mac.histPrev!=null&&mac.hist<mac.histPrev)?15:10; }
+    }
+    L+=mL;S+=mS; rows.push(scoreBar("MACD",mL,mS));
+    // 4) Bollinger (max 10)
+    let bL=0,bS=0;
+    if(boll){
+      if(price>=boll.upper){bL=4;bS=4;} else if(price>boll.mid){bL=8;}
+      else if(price<=boll.lower){bL=4;bS=4;} else {bS=8;}
+    }
+    L+=bL;S+=bS; rows.push(scoreBar("Bollinger konumu",bL,bS));
+    // 5) CVD (max 15)
+    const cL=cvdPos?15:0, cS=cvdPos?0:15;
+    L+=cL;S+=cS; rows.push(scoreBar("CVD (proxy)",cL,cS));
+    // 6) OI + fiyat yönü (max 10)
+    let oL=0,oS=0;
+    if(oi!=null){
+      if(oi>0.002){ if(priceChg>=0){oL=10;} else {oS=10;} }
+    }
+    L+=oL;S+=oS; rows.push(scoreBar("OI + fiyat yönü",oL,oS));
+    // 7) Hacim 14-ort üstü (max 10) → baskın tarafı güçlendir
+    let vL=0,vS=0;
+    if(volAbove){ if(L>=S) vL=10; else vS=10; }
+    L+=vL;S+=vS; rows.push(scoreBar("Hacim 14-ort üstü",vL,vS));
+    // 8) Sektör momentumu (max 10)
+    let secL=0,secS=0;
+    if(sector && sector.momentum!=null){ if(sector.momentum>0) secL=10; else secS=10; }
+    L+=secL;S+=secS; rows.push(scoreBar("Sektör momentumu",secL,secS));
+    // funding: aşırı pozitif = kalabalık long = short'a hafif katkı (bilgi + max 5)
+    if(funding!=null && funding>0.0005){ S+=5; rows.push(scoreBar("Funding aşırı (+long kalabalık)",0,5)); }
+    else if(funding!=null && funding<-0.0005){ L+=5; rows.push(scoreBar("Funding aşırı (−short kalabalık)",5,0)); }
+
+    L=Math.min(100,L); S=Math.min(100,S);
+
+    /* -------- kart -------- */
+    const bias = L>S+10 ? "LONG eğilimli" : (S>L+10 ? "SHORT eğilimli" : "Nötr / kararsız");
+    const biasColor = L>S+10 ? "var(--green)" : (S>L+10 ? "var(--red)" : "var(--muted)");
+    const maRow=(label,m)=> m!=null? `<span class="badge ${price>m?'on-rev':'on-cap'}">${label}: ${price>m?'▲':'▼'} ${fmtPrice(m)}</span>`:`<span class="badge">${label}: -</span>`;
+
+    let html=`<div class="card" style="border-color:${biasColor}">
+      <div class="card-top">
+        <div class="sym">${base}/USDT <span style="font-size:12px;color:var(--muted)">${tf}</span></div>
+        <div class="price mono">${fmtPrice(price)} USDT</div>
+      </div>
+      <div style="display:flex;gap:10px;margin:8px 0 12px">
+        <div style="flex:1;text-align:center;background:var(--bg);border:1px solid var(--green);border-radius:10px;padding:10px">
+          <div style="font-size:26px;font-weight:800;color:var(--green)">${L}</div><div style="font-size:11px;color:var(--muted)">LONG /100</div></div>
+        <div style="flex:1;text-align:center;background:var(--bg);border:1px solid var(--red);border-radius:10px;padding:10px">
+          <div style="font-size:26px;font-weight:800;color:var(--red)">${S}</div><div style="font-size:11px;color:var(--muted)">SHORT /100</div></div>
+      </div>
+      <div style="text-align:center;font-weight:700;color:${biasColor};margin-bottom:12px">${bias}</div>
+      <div class="badges" style="margin-bottom:10px">
+        <span class="badge ${rsi>=50?'on-rev':'on-cap'}">RSI ${rsi!=null?rsi.toFixed(1):'-'}</span>
+        <span class="badge ${mac.hist>0?'on-rev':'on-cap'}">MACD ${mac.hist!=null?(mac.hist>0?'▲':'▼'):'-'}</span>
+        <span class="badge ${cvdPos?'on-div':'on-cap'}">CVD ${cvdPos?'+':'−'}</span>
+        <span class="badge ${volAbove?'on-rev':''}">Hacim ${volAbove?'▲14ort':'▼14ort'}</span>
+        ${oi!=null?`<span class="badge ${oi>=0?'on-rev':'on-cap'}">OI %${(oi*100).toFixed(2)}</span>`:''}
+        ${funding!=null?`<span class="badge on-div">Funding %${(funding*100).toFixed(3)}</span>`:''}
+      </div>
+      <div class="badges" style="margin-bottom:10px">
+        ${maRow("MA50",ma50)} ${maRow("MA100",ma100)} ${maRow("MA200",ma200)}
+      </div>`;
+    if(boll) html+=`<div class="detail">Bollinger: alt ${fmtPrice(boll.lower)} · orta ${fmtPrice(boll.mid)} · üst ${fmtPrice(boll.upper)}</div>`;
+    if(sector){
+      const sm = sector.momentum!=null? `%${sector.momentum.toFixed(2)} (${sector.momentum>0?'pozitif':'negatif'})` : "momentum yok";
+      html+=`<div class="detail">Sektör: <b>${sector.categories&&sector.categories.length?sector.categories[0]:'bilinmiyor'}</b> · 24s ${sm}</div>`;
+    } else {
+      html+=`<div class="detail">Sektör: CoinGecko verisine ulaşılamadı (skora katkı vermedi).</div>`;
+    }
+    html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Puan dökümü</div>${rows.join("")}</div>`;
+    html+=`<div class="detail" style="margin-top:10px;color:var(--muted)">Bu skor kural-tabanlı bir göstergedir; geriye dönük doğrulanmış bir kâr modeli değildir.</div>`;
+    html+=`</div>`;
+    $("an-result").innerHTML=html;
+    $("an-status").textContent="";
+  }catch(e){
+    $("an-status").innerHTML=`<span class="err">Hata: ${e.message}</span>`;
+  }finally{
+    btn.disabled=false;
   }
 }
 
