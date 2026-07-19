@@ -130,6 +130,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="scanbar">
     <button class="primary" id="c-scanbtn" onclick="scanCrypto()">Kripto taramasını başlat</button>
     <button class="ghost" id="c-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
+    <button class="ghost" id="c-exportbtn" onclick="exportKlines()" style="display:none">Veriyi dışa aktar (JSON)</button>
   </div>
 
   <div class="progress" id="c-prog"><i id="c-progbar"></i></div>
@@ -477,15 +478,46 @@ function renderResults(list, prefix, currency){
 }
 
 /* ---------- KRİPTO (Binance) ---------- */
+
+/* Kripto-modelleme entegrasyonu: taranan ham mum verisi burada birikir ve
+   "Veriyi dışa aktar" ile JSON olarak indirilir. Biçim, kripto-modelleme
+   deposundaki `python -m kripto.cli import --file ...` komutuyla uyumludur. */
+const exportCache={};
+
+function cacheKlines(interval, symbol, series){
+  if(!exportCache[interval]) exportCache[interval]={};
+  exportCache[interval][symbol]=series;
+}
+
+function exportKlines(){
+  const intervals=Object.keys(exportCache);
+  if(!intervals.length){ alert("Önce bir tarama çalıştırın — dışa aktarılacak veri yok."); return; }
+  const payload={source:"dip-radar", version:1, exported_at:new Date().toISOString(), data:exportCache};
+  const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="dipradar_export_"+new Date().toISOString().slice(0,10)+".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function updateExportBtn(){
+  const n=Object.values(exportCache).reduce((s,m)=>s+Object.keys(m).length,0);
+  const b=$("c-exportbtn");
+  if(b){ b.style.display=n?"block":"none"; b.textContent=`Veriyi dışa aktar (JSON · ${n} seri)`; }
+}
+
 async function fetchBinanceKlines(symbol, interval, limit){
   try{
     const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
     if(!r.ok) return null;
     const kk=await r.json();
     if(!Array.isArray(kk)||!kk.length) return null;
-    const o=[],h=[],l=[],c=[],v=[];
-    for(const k of kk){ o.push(+k[1]); h.push(+k[2]); l.push(+k[3]); c.push(+k[4]); v.push(+k[5]); }
-    return {o,h,l,c,v};
+    const t=[],o=[],h=[],l=[],c=[],v=[];
+    for(const k of kk){ t.push(+k[0]); o.push(+k[1]); h.push(+k[2]); l.push(+k[3]); c.push(+k[4]); v.push(+k[5]); }
+    const series={t,o,h,l,c,v};
+    cacheKlines(interval, symbol, series);
+    return series;
   }catch(e){ return null; }
 }
 
@@ -571,6 +603,7 @@ async function scanCrypto(){
   }finally{
     btn.disabled=false; stop.style.display="none";
     $("c-prog").classList.remove("on");
+    updateExportBtn();
   }
 }
 
