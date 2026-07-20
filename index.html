@@ -489,16 +489,44 @@ function cacheKlines(interval, symbol, series){
   exportCache[interval][symbol]=series;
 }
 
-function exportKlines(){
+/* Dışa aktarım öncesi her parite için fonlama oranı geçmişi çekilir (futures'ı
+   olmayan pariteler sessizce atlanır). Fonlama, kalabalığın hangi yönde
+   kaldıraçlı olduğunu gösteren, fiyattan bağımsız bir sinyaldir. */
+async function fetchFundingAll(symbols, onProgress){
+  const funding={};
+  await pool(symbols, 6, async (sym)=>{
+    try{
+      const r=await fetch(`https://fapi.binance.com/fapi/v1/fundingRate?symbol=${sym}&limit=1000`);
+      if(!r.ok) return;
+      const ff=await r.json();
+      if(Array.isArray(ff)&&ff.length){
+        funding[sym]={t:ff.map(x=>+x.fundingTime), r:ff.map(x=>+x.fundingRate)};
+      }
+    }catch(e){ /* futures yoksa geç */ }
+    finally{ if(onProgress) onProgress(Object.keys(funding).length); }
+  });
+  return funding;
+}
+
+async function exportKlines(){
   const intervals=Object.keys(exportCache);
   if(!intervals.length){ alert("Önce bir tarama çalıştırın — dışa aktarılacak veri yok."); return; }
-  const payload={source:"dip-radar", version:1, exported_at:new Date().toISOString(), data:exportCache};
+  const btn=$("c-exportbtn"); const orig=btn.textContent; btn.disabled=true;
+  const symbols=[...new Set(intervals.flatMap(iv=>Object.keys(exportCache[iv])))];
+  abortFlag=false;
+  let funding={};
+  try{
+    funding=await fetchFundingAll(symbols, n=>{ btn.textContent=`Fonlama oranları alınıyor… ${n}`; });
+  }catch(e){ /* fonlama alınamazsa fiyat verisiyle devam */ }
+  const payload={source:"dip-radar", version:2, exported_at:new Date().toISOString(),
+                 data:exportCache, funding};
   const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
   a.download="dipradar_export_"+new Date().toISOString().slice(0,10)+".json";
   a.click();
   URL.revokeObjectURL(a.href);
+  btn.textContent=orig; btn.disabled=false;
 }
 
 function updateExportBtn(){
@@ -513,9 +541,9 @@ async function fetchBinanceKlines(symbol, interval, limit){
     if(!r.ok) return null;
     const kk=await r.json();
     if(!Array.isArray(kk)||!kk.length) return null;
-    const t=[],o=[],h=[],l=[],c=[],v=[];
-    for(const k of kk){ t.push(+k[0]); o.push(+k[1]); h.push(+k[2]); l.push(+k[3]); c.push(+k[4]); v.push(+k[5]); }
-    const series={t,o,h,l,c,v};
+    const t=[],o=[],h=[],l=[],c=[],v=[],tb=[];
+    for(const k of kk){ t.push(+k[0]); o.push(+k[1]); h.push(+k[2]); l.push(+k[3]); c.push(+k[4]); v.push(+k[5]); tb.push(+k[9]); }
+    const series={t,o,h,l,c,v,tb}; // tb: taker (agresif) alış hacmi — alıcı/satıcı baskısı analizi için
     cacheKlines(interval, symbol, series);
     return series;
   }catch(e){ return null; }
