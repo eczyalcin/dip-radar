@@ -520,10 +520,22 @@ async function exportKlines(){
   }catch(e){ /* fonlama alınamazsa fiyat verisiyle devam */ }
   const payload={source:"dip-radar", version:2, exported_at:new Date().toISOString(),
                  data:exportCache, funding};
-  const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
+  btn.textContent="Sıkıştırılıyor…";
+  const json=JSON.stringify(payload);
+  let blob, fname="dipradar_export_"+new Date().toISOString().slice(0,10);
+  try{
+    // Doğrudan gzip'li indir (25 MB üstü dosyalar paylaşımda sorun çıkarıyor);
+    // eski tarayıcıda CompressionStream yoksa düz JSON'a düş.
+    const stream=new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"));
+    blob=await new Response(stream).blob();
+    fname+=".json.gz";
+  }catch(e){
+    blob=new Blob([json],{type:"application/json"});
+    fname+=".json";
+  }
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download="dipradar_export_"+new Date().toISOString().slice(0,10)+".json";
+  a.download=fname;
   a.click();
   URL.revokeObjectURL(a.href);
   btn.textContent=orig; btn.disabled=false;
