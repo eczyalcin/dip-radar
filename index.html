@@ -170,6 +170,62 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="empty" id="c-empty">Kriterlere uyan sembol bulunamadı. Eşikleri gevşetmeyi dene (ör. düşüş %60, hacim çarpanı 2).</div>
 
   <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
+  <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Tepe <span style="color:var(--amber)">(Short) sinyal</span></h1>
+  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Birkaç günde parabolik yükseliş + aşırı alım (günlük RSI) · ayı ıraksaması + tükeniş mumu + fonlama/OI aşırılığı + zayıflayan alıcı baskısı + onay mumu</p>
+
+  <div class="warnbox">
+    <b>Uyarı:</b> Güçlü bir trendde RSI uzun süre aşırı alım bölgesinde kalabilir; bu tarama "aşırı ısınmış" coinleri işaretler, kesin tepe garantisi vermez. Şort pozisyon kaldıraçlı ve risklidir — kendi risk yönetimini uygula.
+  </div>
+
+  <details class="settings">
+    <summary>Short sinyal ayarları</summary>
+    <div class="settings-body">
+      <div class="field"><label>Taranacak coin sayısı (hacme göre)</label><input type="number" id="sh-topn" value="700" min="10" max="700"></div>
+      <div class="field"><label>Yükseliş penceresi (gün)</label><input type="number" id="sh-pumpdays" value="3" min="1" max="10"></div>
+      <div class="field"><label>Dip arama penceresi (gün)</label><input type="number" id="sh-pumplookback" value="10" min="3" max="30"></div>
+      <div class="field"><label>Yükseliş çarpanı (≥)</label><input type="number" id="sh-pumpmult" value="3" min="1.2" max="10" step="0.1"></div>
+      <div class="field"><label>Günlük RSI alt sınırı (≥)</label><input type="number" id="sh-rsimin" value="90" min="60" max="99"></div>
+      <div class="field"><label>RSI periyodu</label><input type="number" id="sh-rsip" value="14" min="5" max="30"></div>
+      <div class="field"><label>Ayı ıraksaması arama penceresi (mum)</label><input type="number" id="sh-lb" value="14" min="10" max="150"></div>
+      <div class="field"><label>Son tepe en çok kaç mum önce</label><input type="number" id="sh-recent" value="10" min="3" max="40"></div>
+      <div class="field"><label>Tükeniş mumu hacim çarpanı</label><input type="number" id="sh-exhv" value="3" min="1.5" max="10" step="0.5"></div>
+      <div class="field"><label>Tükeniş mumu penceresi (gün)</label><input type="number" id="sh-exhw" value="10" min="3" max="30"></div>
+      <div class="field"><label>Onay mumu hacim çarpanı</label><input type="number" id="sh-confv" value="2" min="1.2" max="8" step="0.1"></div>
+      <div class="field"><label>Onay mumu penceresi (gün)</label><input type="number" id="sh-confw" value="6" min="2" max="20"></div>
+      <div class="field"><label>Fonlama aşırı alt sınırı (%)</label><input type="number" id="sh-fundmin" value="0.05" min="0" max="1" step="0.01"></div>
+      <div class="field"><label>OI min. değişim (%)</label><input type="number" id="sh-oimin" value="0" min="-5" max="10" step="0.5"></div>
+      <div class="field"><label>Alıcı baskısı karşılaştırma penceresi (gün)</label><input type="number" id="sh-cvdwin" value="3" min="1" max="10"></div>
+    </div>
+  </details>
+
+  <div class="scanbar">
+    <button class="primary" id="sh-scanbtn" onclick="scanShort()">Short sinyal taramasını başlat</button>
+    <button class="ghost" id="sh-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
+    <button class="ghost" id="sh-clearbtn" onclick="clearResults('sh')" style="display:none">Temizle</button>
+  </div>
+
+  <div class="progress" id="sh-prog"><i id="sh-progbar"></i></div>
+  <div class="status" id="sh-status"></div>
+
+  <div class="summary" id="sh-summary">
+    <div class="stat"><b id="sh-s-scanned">0</b><span>tarandı</span></div>
+    <div class="stat"><b id="sh-s-gate">0</b><span>kapıyı geçti</span></div>
+    <div class="stat"><b id="sh-s-signal">0</b><span>sinyalli</span></div>
+    <div class="stat"><b id="sh-s-full">0</b><span>tam eşleşme</span></div>
+  </div>
+
+  <div class="filterbar" id="sh-filter">
+    <div class="fbtn" data-min="0" onclick="setFilter('sh',0)">Tümü</div>
+    <div class="fbtn active" data-min="3" onclick="setFilter('sh',3)">3+ sinyal</div>
+    <div class="fbtn" data-min="5" onclick="setFilter('sh',5)">Tam eşleşme</div>
+  </div>
+  <div class="fcount" id="sh-fcount"></div>
+
+  <div id="sh-results"></div>
+  <button class="ghost morebtn" id="sh-morebtn" onclick="showMore('sh')" style="display:none">Daha fazla göster</button>
+  <div class="empty" id="sh-empty">Kriterlere uyan sembol bulunamadı. Yükseliş çarpanını veya RSI eşiğini düşürmeyi dene.</div>
+
+  <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
   <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Scalping <span style="color:var(--amber)">sinyal</span></h1>
   <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Hacim patlaması + fiyat ↑ + OI ↑ + alıcı baskısı · sert kapı: CVD(vekil) pozitif & skor ≥ 4</p>
 
@@ -325,11 +381,11 @@ let abortFlag = false;
 
 /* ---------- sonuç filtreleme / sayfalama / temizleme ---------- */
 const rawResults = {};             // prefix -> {list, currency}
-const filterMin = {c:2, s:2, sc:6}; // varsayılan eşikler
+const filterMin = {c:2, s:2, sc:6, sh:3}; // varsayılan eşikler
 const PAGE_SIZE = 25;
-const shownCount = {c:PAGE_SIZE, s:PAGE_SIZE, sc:PAGE_SIZE};
+const shownCount = {c:PAGE_SIZE, s:PAGE_SIZE, sc:PAGE_SIZE, sh:PAGE_SIZE};
 const EMPTY_MSG = {};
-["c","s","sc"].forEach(p=>{ const el=$(p+"-empty"); if(el) EMPTY_MSG[p]=el.textContent; });
+["c","s","sc","sh"].forEach(p=>{ const el=$(p+"-empty"); if(el) EMPTY_MSG[p]=el.textContent; });
 
 /* son taramayı localStorage'a yaz — sayfa yenilenince kaybolmasın */
 function persistResults(prefix){
@@ -349,12 +405,16 @@ function setFilter(prefix, min){
   document.querySelectorAll(`#${prefix}-filter .fbtn`).forEach(b=>{
     b.classList.toggle("active", parseInt(b.dataset.min,10)===min);
   });
-  if(prefix==="sc") applyFilterScalp(); else applyFilter(prefix);
+  if(prefix==="sc") applyFilterScalp();
+  else if(prefix==="sh") applyFilterShort();
+  else applyFilter(prefix);
 }
 
 function showMore(prefix){
   shownCount[prefix]+=PAGE_SIZE;
-  if(prefix==="sc") applyFilterScalp(); else applyFilter(prefix);
+  if(prefix==="sc") applyFilterScalp();
+  else if(prefix==="sh") applyFilterShort();
+  else applyFilter(prefix);
 }
 
 function clearResults(prefix){
@@ -501,6 +561,84 @@ function findReversal(o,h,l,c,v,vs,p){
   return null;
 }
 
+/* ---------- Tepe (short) sinyal yardımcıları — dip-radar mantığının aynası ---------- */
+
+/* negatif (ayı) RSI ıraksaması: fiyat daha yüksek tepe, RSI daha düşük tepe */
+function bearishDivergence(highs, rsi, p){
+  const n=highs.length, k=3;
+  const piv=[];
+  const start=Math.max(k, n-p.lookback);
+  for(let i=start;i<n-k;i++){
+    let ok=true;
+    for(let j=i-k;j<=i+k;j++){ if(j===i)continue; if(highs[j]>=highs[i]){ok=false;break;} }
+    if(ok && rsi[i]!=null) piv.push(i);
+  }
+  if(piv.length<2) return null;
+  const p2=piv[piv.length-1];
+  if(n-1-p2 > p.recent) return null;
+  for(let a=piv.length-2;a>=0;a--){
+    const p1=piv[a];
+    if(highs[p2] > highs[p1] && rsi[p2] < rsi[p1]-1 && rsi[p1] > p.rsiMin){
+      return {rsi1:rsi[p1], rsi2:rsi[p2], barsAgo:n-1-p2};
+    }
+  }
+  return null;
+}
+
+/* tükeniş mumu: yeşil + hacim patlaması + geniş aralık (kapitülasyonun tersi) */
+function findExhaustion(o,h,l,c,v,atr,vs,p){
+  const n=c.length;
+  for(let i=n-1;i>=Math.max(5,n-p.exhWindow);i--){
+    if(vs[i]==null||atr[i]==null) continue;
+    if(c[i]>o[i] && v[i]>=p.exhVolMult*vs[i] && (h[i]-l[i])>=2*atr[i]){
+      return {barsAgo:n-1-i, volX:(v[i]/vs[i])};
+    }
+  }
+  return null;
+}
+
+/* hacimli kırmızı onay mumu: aralığın alt yarısında kapanış (dönüş mumunun tersi) */
+function findBearConfirm(o,h,l,c,v,vs,p){
+  const n=c.length;
+  for(let i=n-1;i>=Math.max(5,n-p.confirmWindow);i--){
+    if(vs[i]==null) continue;
+    const rng=h[i]-l[i];
+    if(rng<=0) continue;
+    if(c[i]<o[i] && v[i]>=p.confirmVolMult*vs[i] && (h[i]-c[i])/rng>=0.55){
+      return {barsAgo:n-1-i, volX:(v[i]/vs[i])};
+    }
+  }
+  return null;
+}
+
+/* birkaç günde N kat yükseliş: pencere içindeki tepe / o tepeden önceki dip */
+function findPump(h, l, c, p){
+  const n=c.length;
+  const winStart=Math.max(0, n-p.pumpDays);
+  let hiIdx=winStart;
+  for(let i=winStart;i<n;i++){ if(h[i]>h[hiIdx]) hiIdx=i; }
+  const loStart=Math.max(0, hiIdx-p.pumpLookback);
+  if(loStart>=hiIdx) return null;
+  let loIdx=loStart;
+  for(let i=loStart;i<hiIdx;i++){ if(l[i]<l[loIdx]) loIdx=i; }
+  if(l[loIdx]<=0) return null;
+  const mult=h[hiIdx]/l[loIdx];
+  if(mult < p.pumpMult) return null;
+  return {mult, hiIdx, loIdx, barsSincePeak:n-1-hiIdx};
+}
+
+/* alıcı baskısı vekili son `win` günde, ondan önceki `win` güne göre zayıflıyor mu */
+function cvdWeakening(v, tb, win){
+  const n=v.length;
+  if(!tb || n < win*2) return false;
+  const pressureRatio=(from,to)=>{
+    let net=0, vol=0;
+    for(let i=from;i<to;i++){ net += (2*tb[i]-v[i]); vol += v[i]; }
+    return vol>0 ? net/vol : 0;
+  };
+  return pressureRatio(n-win, n) < pressureRatio(n-2*win, n-win);
+}
+
 function divergenceOn(series, p){
   if(!series || series.c.length<40) return null;
   const rsi=computeRSI(series.c, p.rsiPeriod);
@@ -536,6 +674,30 @@ function analyzeDaily(sD, p){
   const rev=findReversal(o,h,l,c,v,vs,p);
   return {div1h:null,div4h:null,div1d,divCount:(div1d?1:0),cap,rev,showIntraday:false,
           score:(div1d?1:0)+(cap?1:0)+(rev?1:0),lastRSI:rsi[rsi.length-1]};
+}
+
+/* tepe (short) sinyali: zorunlu kapı = birkaç günde N kat yükseliş + aşırı RSI;
+   kapıyı geçenler için 5 destekleyici sinyal puanlanır */
+function analyzeShort(sD, p){
+  if(!sD || sD.c.length<40) return null;
+  const {o,h,l,c,v,tb}=sD;
+  const rsi=computeRSI(c,p.rsiPeriod);
+  const atr=computeATR(h,l,c,14);
+  const vs=volSMA(v,20);
+
+  const pump=findPump(h,l,c,p);
+  if(!pump) return null;
+
+  let maxRsi=-Infinity;
+  for(let i=pump.loIdx;i<c.length;i++){ if(rsi[i]!=null && rsi[i]>maxRsi) maxRsi=rsi[i]; }
+  if(!(maxRsi>=p.rsiMin)) return null;
+
+  const div=bearishDivergence(h,rsi,p);
+  const exh=findExhaustion(o,h,l,c,v,atr,vs,p);
+  const confirm=findBearConfirm(o,h,l,c,v,vs,p);
+  const cvdWeak=cvdWeakening(v,tb,p.cvdWin);
+
+  return {pump, maxRsi, div, exh, confirm, cvdWeak, lastRSI:rsi[rsi.length-1]};
 }
 
 /* ---------- eşzamanlılık havuzu ---------- */
@@ -1091,6 +1253,168 @@ async function scanScalping(){
   }
 }
 
+/* ================= TEPE (SHORT) SİNYAL ================= */
+
+/* günlük OHLCV + taker-buy hacmi — futures'tan (funding/OI ile aynı evren) */
+async function fetchFutOHLCV(symbol, interval, limit){
+  try{
+    const r=await fetch(`${FUT}/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+    if(!r.ok) return null;
+    const kk=await r.json();
+    if(!Array.isArray(kk)||!kk.length) return null;
+    const o=[],h=[],l=[],c=[],v=[],tb=[];
+    for(const k of kk){ o.push(+k[1]); h.push(+k[2]); l.push(+k[3]); c.push(+k[4]); v.push(+k[5]); tb.push(+k[9]); }
+    return {o,h,l,c,v,tb};
+  }catch(e){ return null; }
+}
+
+function shortParams(){
+  return {
+    topN: parseInt($("sh-topn").value),
+    pumpDays: parseInt($("sh-pumpdays").value),
+    pumpLookback: parseInt($("sh-pumplookback").value),
+    pumpMult: parseFloat($("sh-pumpmult").value),
+    rsiMin: parseFloat($("sh-rsimin").value),
+    rsiPeriod: parseInt($("sh-rsip").value),
+    lookback: parseInt($("sh-lb").value),
+    recent: parseInt($("sh-recent").value),
+    exhVolMult: parseFloat($("sh-exhv").value),
+    exhWindow: parseInt($("sh-exhw").value),
+    confirmVolMult: parseFloat($("sh-confv").value),
+    confirmWindow: parseInt($("sh-confw").value),
+    fundMin: parseFloat($("sh-fundmin").value)/100,
+    oiMin: parseFloat($("sh-oimin").value)/100,
+    cvdWin: parseInt($("sh-cvdwin").value)
+  };
+}
+
+function renderShortCard(r){
+  const full=r.score===5;
+  let html=`<div class="card ${full?'full-match':''}">
+    <div class="card-top">
+      <div class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git">${escapeHtml(r.symbol)}${full?'<span class="fullmatch-tag">TAM EŞLEŞME</span>':''}</div>
+      <div class="price mono">${fmtPrice(r.price)} USDT</div>
+    </div>
+    <div class="detail">Son ${r.sig.pump.barsSincePeak+1} gün içinde <b>${r.sig.pump.mult.toFixed(1)}×</b> yükseliş · tepe RSI <b>${r.sig.maxRsi.toFixed(1)}</b></div>
+    <div class="badges">
+      <span class="badge ${r.sig.div?'on-cap':''}">Ayı ıraksaması ${r.sig.div?'✓':'—'}</span>
+      <span class="badge ${r.sig.exh?'on-cap':''}">Tükeniş mumu ${r.sig.exh?'✓':'—'}</span>
+      <span class="badge ${r.fundHot?'on-cap':''}">Funding+OI aşırı ${r.fundHot?'✓':'—'}</span>
+      <span class="badge ${r.sig.cvdWeak?'on-cap':''}">Alıcı baskısı zayıflıyor ${r.sig.cvdWeak?'✓':'—'}</span>
+      <span class="badge ${r.sig.confirm?'on-rev':''}">Onay mumu ${r.sig.confirm?'✓':'—'}</span>
+    </div>
+    <div class="detail">`;
+  const parts=[];
+  if(r.sig.div) parts.push(`Ayı ıraksaması: RSI tepe <b>${r.sig.div.rsi1.toFixed(1)} → ${r.sig.div.rsi2.toFixed(1)}</b> (${r.sig.div.barsAgo} gün önce)`);
+  if(r.sig.exh) parts.push(`Tükeniş: <b>${r.sig.exh.volX.toFixed(1)}×</b> hacimli yeşil mum, ${r.sig.exh.barsAgo} gün önce`);
+  if(r.fundHot) parts.push(`Funding <b>%${(r.funding*100).toFixed(3)}</b> · OI <b>%${(r.oi*100).toFixed(2)}</b>`);
+  if(r.sig.confirm) parts.push(`Onay: <b>${r.sig.confirm.volX.toFixed(1)}×</b> hacimli kırmızı mum, ${r.sig.confirm.barsAgo} gün önce`);
+  html+=parts.join(" · ");
+  html+=`${parts.length?' · ':''}Güncel günlük RSI: <b>${r.sig.lastRSI!=null?r.sig.lastRSI.toFixed(1):'-'}</b></div></div>`;
+  return html;
+}
+
+function applyFilterShort(){
+  const data=rawResults.sh;
+  const box=$("sh-results");
+  const emptyEl=$("sh-empty");
+  const countEl=$("sh-fcount");
+  const moreBtn=$("sh-morebtn");
+  if(!data || !data.list.length){
+    box.innerHTML="";
+    moreBtn.style.display="none";
+    emptyEl.textContent=EMPTY_MSG.sh;
+    emptyEl.classList.toggle("on", !!data);
+    countEl.textContent="";
+    return;
+  }
+  const min=filterMin.sh;
+  const filtered=data.list.filter(r=>r.score>=min);
+  const shown=filtered.slice(0, shownCount.sh);
+  box.innerHTML=shown.map(renderShortCard).join("");
+  const remaining=filtered.length-shown.length;
+  moreBtn.style.display=remaining>0?"block":"none";
+  moreBtn.textContent=`Daha fazla göster (+${remaining})`;
+  emptyEl.classList.toggle("on", filtered.length===0);
+  emptyEl.textContent = filtered.length===0 ? 'Bu filtrede sonuç yok. "Tümü"nü dene.' : EMPTY_MSG.sh;
+  countEl.textContent = `${shown.length} / ${filtered.length} gösteriliyor (toplam ${data.list.length} sinyalli)`;
+}
+
+async function scanShort(){
+  abortFlag=false;
+  const p=shortParams();
+  const btn=$("sh-scanbtn"), stop=$("sh-stopbtn");
+  btn.disabled=true; stop.style.display="block";
+  $("sh-prog").classList.add("on"); $("sh-progbar").style.width="0%";
+  $("sh-results").innerHTML=""; $("sh-empty").classList.remove("on");
+  $("sh-summary").classList.remove("on");
+  $("sh-filter").classList.remove("on"); $("sh-clearbtn").style.display="none"; $("sh-morebtn").style.display="none"; rawResults.sh=null;
+  const status=$("sh-status");
+  const results=[]; let gateCount=0, done=0;
+
+  try{
+    status.textContent="Futures sembol listesi alınıyor…";
+    const tr=await fetch(`${FUT}/fapi/v1/ticker/24hr`);
+    if(!tr.ok) throw new Error("Futures ticker hatası: "+tr.status);
+    const tk=await tr.json();
+    const universe=tk
+      .filter(t=>t.symbol.endsWith("USDT"))
+      .filter(t=>!/(UP|DOWN|BULL|BEAR)USDT$/.test(t.symbol))
+      .filter(t=>parseFloat(t.quoteVolume)>0)
+      .sort((a,b)=>parseFloat(b.quoteVolume)-parseFloat(a.quoteVolume))
+      .slice(0,p.topN)
+      .map(t=>({symbol:t.symbol, price:parseFloat(t.lastPrice)}));
+
+    await pool(universe, 6, async (u)=>{
+      try{
+        const sD=await fetchFutOHLCV(u.symbol, "1d", 60);
+        const sig=analyzeShort(sD, p);
+        if(!sig) return; // zorunlu kapı: yükseliş + aşırı RSI geçmedi
+        gateCount++;
+
+        const [oi, funding] = await Promise.all([
+          fetchOIchange(u.symbol, "1d"),
+          fetchFunding(u.symbol)
+        ]);
+        const fundHot = funding!=null && funding>=p.fundMin && oi!=null && oi>=p.oiMin;
+
+        let score=0;
+        if(sig.div) score++;
+        if(sig.exh) score++;
+        if(fundHot) score++;
+        if(sig.cvdWeak) score++;
+        if(sig.confirm) score++;
+
+        results.push({symbol:u.symbol.replace("USDT","/USDT"), price:u.price, sig, fundHot, funding, oi, score});
+      }catch(e){ /* tek sembol hatası taramayı durdurmasın */ }
+      finally{
+        done++;
+        $("sh-progbar").style.width=(done/universe.length*100).toFixed(1)+"%";
+        status.textContent=`${u.symbol} · ${done}/${universe.length}`;
+        $("sh-s-scanned").textContent=done;
+        $("sh-s-gate").textContent=gateCount;
+      }
+    });
+
+    results.sort((a,b)=>b.score-a.score || b.sig.pump.mult-a.sig.pump.mult);
+    rawResults.sh={list:results};
+    shownCount.sh=PAGE_SIZE;
+    $("sh-s-signal").textContent=results.length;
+    $("sh-s-full").textContent=results.filter(r=>r.score===5).length;
+    $("sh-summary").classList.add("on");
+    $("sh-filter").classList.toggle("on", results.length>0);
+    $("sh-clearbtn").style.display=results.length>0?"block":"none";
+    persistResults("sh");
+    applyFilterShort();
+    status.textContent=abortFlag?"Tarama durduruldu.":"Tarama tamamlandı.";
+  }catch(e){
+    status.innerHTML=`<span class="err">Hata: ${e.message}. Binance futures API'sine erişilemedi (hız sınırı veya bölge kısıtı olabilir).</span>`;
+  }finally{
+    btn.disabled=false; stop.style.display="none";
+    $("sh-prog").classList.remove("on");
+  }
+}
+
 /* ================= COIN ANALİZ ================= */
 function ema(arr, period){
   const out=new Array(arr.length).fill(null);
@@ -1399,6 +1723,23 @@ function clearList(){
         $("sc-clearbtn").style.display="block";
         applyFilterScalp();
         $("sc-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
+      }
+    }catch(e){}
+  }
+  const rawSh=store.get("results:sh","");
+  if(rawSh){
+    try{
+      const saved=JSON.parse(rawSh);
+      if(saved && saved.list && saved.list.length){
+        rawResults.sh={list:saved.list};
+        shownCount.sh=PAGE_SIZE;
+        $("sh-s-signal").textContent=saved.list.length;
+        $("sh-s-full").textContent=saved.list.filter(r=>r.score===5).length;
+        $("sh-summary").classList.add("on");
+        $("sh-filter").classList.toggle("on", true);
+        $("sh-clearbtn").style.display="block";
+        applyFilterShort();
+        $("sh-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
       }
     }catch(e){}
   }
