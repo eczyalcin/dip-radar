@@ -134,6 +134,16 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 <!-- ================= KRİPTO ================= -->
 <div class="panel active" id="panel-crypto">
 
+  <div class="warnbox">
+    <b>LunarCrush (sosyal veri) — deneysel:</b> Galaxy Score, AltRank ve duyarlılık verisi için kendi LunarCrush API anahtarını gir (ücretli plan gerekir). Anahtar tüm sekmelerde (Dip tarama rozetleri, Short sinyal rozetleri, Coin analiz, Sosyal tarama) paylaşılır. Tarayıcıdan doğrudan erişimin (CORS) çalışıp çalışmayacağı doğrulanmadı.
+  </div>
+  <details class="settings">
+    <summary>LunarCrush anahtarı</summary>
+    <div class="settings-body">
+      <div class="field full"><label>LunarCrush API anahtarı</label><input type="password" id="lc-key" placeholder="Bearer anahtarı" onchange="store.set('lunarkey', this.value)"></div>
+    </div>
+  </details>
+
   <details class="settings">
     <summary>Tarama ayarları</summary>
     <div class="settings-body">
@@ -315,6 +325,32 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="progress" id="an-prog"><i id="an-progbar"></i></div>
   <div class="status" id="an-status"></div>
   <div id="an-result"></div>
+
+  <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
+  <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Sosyal <span style="color:var(--amber)">(LunarCrush) tarama</span></h1>
+  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Galaxy Score / AltRank / duyarlılık / sosyal baskınlığa göre sıralı coin listesi</p>
+
+  <div class="settings-body" style="padding:0 0 12px">
+    <div class="field"><label>Sırala</label>
+      <select id="lc-sort" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
+        <option value="galaxy_score">Galaxy Score</option>
+        <option value="alt_rank">AltRank (düşük=iyi)</option>
+        <option value="sentiment">Duyarlılık</option>
+        <option value="social_dominance">Sosyal baskınlık</option>
+        <option value="percent_change_24h">24s % değişim</option>
+      </select>
+    </div>
+    <div class="field"><label>Sonuç sayısı</label><input type="number" id="lc-limit" value="50" min="10" max="200"></div>
+  </div>
+
+  <div class="scanbar">
+    <button class="primary" id="lc-scanbtn" onclick="scanSocial()">Sosyal taramayı başlat</button>
+  </div>
+
+  <div class="progress" id="lc-prog"><i id="lc-progbar"></i></div>
+  <div class="status" id="lc-status"></div>
+  <div id="lc-results"></div>
+  <div class="empty" id="lc-empty">LunarCrush API anahtarı gir ve taramayı başlat.</div>
 </div>
 
 <!-- ================= HİSSE ================= -->
@@ -760,13 +796,128 @@ document.addEventListener("visibilitychange", ()=>{
   }
 });
 
+/* ---------- LunarCrush (sosyal veri) ----------
+   Tek doğrulanmış uç nokta kullanılır: GET /public/coins/list/v2 (tüm coinler,
+   galaxy_score/alt_rank/sentiment/social_dominance dahil). Liste bir kez çekilip
+   5 dakika önbelleğe alınır; Coin analiz, Dip/Short rozetleri ve Sosyal tarama
+   sekmesi hepsi bu tek önbellekten beslenir — ekstra sembol-başına istek yok. */
+const LC_BASE="https://lunarcrush.com/api4";
+let lcListCache=null; // {ts, bySymbol:Map, rows:[]} veya bekleyen Promise
+
+function lcKey(){ return $("lc-key").value.trim(); }
+
+async function lcGetList(){
+  if(!lcKey()) return null;
+  if(lcListCache && !(lcListCache instanceof Promise) && Date.now()-lcListCache.ts<5*60*1000) return lcListCache;
+  if(lcListCache instanceof Promise) return lcListCache;
+  const p=(async()=>{
+    try{
+      const r=await fetch(`${LC_BASE}/public/coins/list/v2?sort=market_cap_rank&limit=2000`,
+        { headers:{ "Authorization":`Bearer ${lcKey()}` } });
+      if(!r.ok) return null;
+      const j=await r.json();
+      if(!Array.isArray(j.data)) return null;
+      const bySymbol=new Map();
+      for(const row of j.data){ if(row.symbol) bySymbol.set(String(row.symbol).toUpperCase(), row); }
+      return {ts:Date.now(), bySymbol, rows:j.data};
+    }catch(e){ return null; } /* ağ hatası veya CORS engeli — sessizce atla */
+  })();
+  lcListCache=p;
+  const result=await p;
+  lcListCache=result; // sonucu (null olsa bile) sakla; null ise bir sonraki çağrıda tekrar denenir
+  if(result===null) lcListCache=null;
+  return result;
+}
+
+async function lcLookup(baseSymbol){
+  const list=await lcGetList();
+  if(!list) return null;
+  return list.bySymbol.get(baseSymbol.toUpperCase()) || null;
+}
+
+/* dip/short kartlarına, ilk render'dan sonra sosyal rozet ekler (varsa) */
+async function enrichSocialBadges(containerId){
+  if(!lcKey()) return;
+  const list=await lcGetList();
+  if(!list) return;
+  const box=$(containerId);
+  if(!box) return;
+  box.querySelectorAll(".card[data-symbol]").forEach(card=>{
+    if(card.querySelector(".lc-badge")) return;
+    const base=card.dataset.symbol.replace("/USDT","").replace(/USDT$/,"").toUpperCase();
+    const row=list.bySymbol.get(base);
+    if(!row) return;
+    const badges=card.querySelector(".badges");
+    if(!badges) return;
+    const span=document.createElement("span");
+    span.className="badge lc-badge on-div";
+    span.textContent=`GS ${row.galaxy_score!=null?row.galaxy_score:'-'} · #${row.alt_rank!=null?row.alt_rank:'-'}`;
+    span.title="LunarCrush Galaxy Score · AltRank";
+    badges.appendChild(span);
+  });
+}
+
+function renderSocialCard(r){
+  const sent=r.sentiment;
+  const sentColor = sent==null?"":(sent>=65?"var(--green)":(sent<=35?"var(--red)":"var(--muted)"));
+  const chg=r.percent_change_24h;
+  return `<div class="card">
+    <div class="card-top">
+      <div class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git">${escapeHtml(r.symbol)}</div>
+      <div class="price mono">${fmtPrice(r.price)} USD</div>
+    </div>
+    <div class="badges">
+      <span class="badge on-div">Galaxy Score ${r.galaxy_score!=null?r.galaxy_score:'-'}</span>
+      <span class="badge on-cap">AltRank #${r.alt_rank!=null?r.alt_rank:'-'}</span>
+      <span class="badge" style="${sentColor?`color:${sentColor};border-color:${sentColor}`:''}">Duyarlılık ${sent!=null?'%'+sent:'-'}</span>
+      <span class="badge on-rev">Sosyal baskınlık ${r.social_dominance!=null?'%'+r.social_dominance.toFixed(2):'-'}</span>
+    </div>
+    <div class="detail">24s: fiyat <b>${chg!=null?(chg>=0?'+':'')+chg.toFixed(2)+'%':'-'}</b> · etkileşim <b>${r.interactions_24h!=null?r.interactions_24h.toLocaleString('tr-TR'):'-'}</b></div>
+  </div>`;
+}
+
+async function scanSocial(){
+  const key=lcKey();
+  if(!key){ $("lc-status").innerHTML='<span class="err">LunarCrush API anahtarı gerekli.</span>'; return; }
+  store.set("lunarkey", key);
+  const sortMetric=$("lc-sort").value;
+  const limit=parseInt($("lc-limit").value)||50;
+  const btn=$("lc-scanbtn"); btn.disabled=true;
+  $("lc-prog").classList.add("on"); $("lc-progbar").style.width="30%";
+  $("lc-results").innerHTML=""; $("lc-empty").classList.remove("on");
+  $("lc-status").textContent="LunarCrush'tan veri alınıyor…";
+
+  const list=await lcGetList();
+  $("lc-progbar").style.width="100%";
+
+  if(!list){
+    $("lc-status").innerHTML='<span class="err">Veri alınamadı. Anahtar/plan geçersiz olabilir veya tarayıcı isteği engellemiş olabilir (CORS).</span>';
+  } else {
+    const asc = sortMetric==="alt_rank"; // AltRank'ta düşük daha iyi
+    const sorted=list.rows
+      .filter(r=>r[sortMetric]!=null)
+      .sort((a,b)=> asc ? a[sortMetric]-b[sortMetric] : b[sortMetric]-a[sortMetric])
+      .slice(0, limit);
+    if(!sorted.length){
+      $("lc-empty").classList.add("on");
+      $("lc-status").textContent="Sonuç yok.";
+    } else {
+      $("lc-results").innerHTML=sorted.map(renderSocialCard).join("");
+      $("lc-status").textContent=`${sorted.length} coin listelendi · sıralama: ${sortMetric}`;
+    }
+  }
+  btn.disabled=false;
+  $("lc-prog").classList.remove("on");
+}
+
 /* ---------- kart çizimi ---------- */
 function renderCard(r, currency, crypto){
   const full = r.sig.score===3;
   const ddPct=(r.dd*100);
   const pos=Math.min(99, Math.max(1, ddPct));
   const symAttrs = crypto ? ` class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git"` : ` class="sym"`;
-  let html = `<div class="card ${full?'full-match':''}">
+  const cardAttrs = crypto ? ` data-symbol="${escapeHtml(r.symbol)}"` : "";
+  let html = `<div class="card ${full?'full-match':''}"${cardAttrs}>
     <div class="card-top">
       <div${symAttrs}>${escapeHtml(r.symbol)}${full?'<span class="fullmatch-tag">TAM EŞLEŞME</span>':''}</div>
       <div class="price mono">${fmtPrice(r.price)} ${escapeHtml(currency)}</div>
@@ -823,6 +974,7 @@ function applyFilter(prefix){
   const filtered=data.list.filter(r=>r.sig.score>=min);
   const shown=filtered.slice(0, shownCount[prefix]);
   box.innerHTML=shown.map(r=>renderCard(r,data.currency,crypto)).join("");
+  if(crypto) enrichSocialBadges(prefix+"-results");
   const remaining=filtered.length-shown.length;
   moreBtn.style.display=remaining>0?"block":"none";
   moreBtn.textContent=`Daha fazla göster (+${remaining})`;
@@ -1342,7 +1494,7 @@ function shortParams(){
 
 function renderShortCard(r){
   const full=r.score===5;
-  let html=`<div class="card ${full?'full-match':''}">
+  let html=`<div class="card ${full?'full-match':''}" data-symbol="${escapeHtml(r.symbol)}">
     <div class="card-top">
       <div class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git">${escapeHtml(r.symbol)}${full?'<span class="fullmatch-tag">TAM EŞLEŞME</span>':''}</div>
       <div class="price mono">${fmtPrice(r.price)} USDT</div>
@@ -1384,6 +1536,7 @@ function applyFilterShort(){
   const filtered=data.list.filter(r=>r.score>=min);
   const shown=filtered.slice(0, shownCount.sh);
   box.innerHTML=shown.map(renderShortCard).join("");
+  enrichSocialBadges("sh-results");
   const remaining=filtered.length-shown.length;
   moreBtn.style.display=remaining>0?"block":"none";
   moreBtn.textContent=`Daha fazla göster (+${remaining})`;
@@ -1572,6 +1725,9 @@ async function analyzeOne(base, tf, sectorCache){
     if(!sectorCache.has(base)) sectorCache.set(base, fetchSectorMomentum(base));
     const sector=await sectorCache.get(base);
 
+    /* LunarCrush: anahtar yoksa veya coin listede yoksa null döner, skora katkı vermez */
+    const social=lcKey() ? await lcLookup(base) : null;
+
     /* -------- kural-tabanlı skor -------- */
     let L=0,S=0; const rows=[];
     // 1) MA trend stack (max 25)
@@ -1622,6 +1778,15 @@ async function analyzeOne(base, tf, sectorCache){
     let secL=0,secS=0;
     if(sector && sector.momentum!=null){ if(sector.momentum>0) secL=10; else secS=10; }
     L+=secL;S+=secS; rows.push(scoreBar("Sektör momentumu",secL,secS));
+    // 9) Sosyal (LunarCrush): yüksek Galaxy Score + pozitif duyarlılık = long eğilimi, tersi short (max 10)
+    let socL=0,socS=0;
+    if(social && social.galaxy_score!=null && social.sentiment!=null){
+      if(social.galaxy_score>=65 && social.sentiment>=60){ socL=10; }
+      else if(social.galaxy_score<=35 && social.sentiment<=40){ socS=10; }
+      else if(social.sentiment>=60){ socL=5; }
+      else if(social.sentiment<=40){ socS=5; }
+    }
+    L+=socL;S+=socS; rows.push(scoreBar("Sosyal (LunarCrush)",socL,socS));
     // funding: aşırı pozitif = kalabalık long = short'a hafif katkı (bilgi + max 5)
     if(funding!=null && funding>0.0005){ S+=5; rows.push(scoreBar("Funding aşırı (+long kalabalık)",0,5)); }
     else if(funding!=null && funding<-0.0005){ L+=5; rows.push(scoreBar("Funding aşırı (−short kalabalık)",5,0)); }
@@ -1662,6 +1827,11 @@ async function analyzeOne(base, tf, sectorCache){
       html+=`<div class="detail">Sektör: <b>${sector.categories&&sector.categories.length?sector.categories[0]:'bilinmiyor'}</b> · 24s ${sm}</div>`;
     } else {
       html+=`<div class="detail">Sektör: CoinGecko verisine ulaşılamadı (skora katkı vermedi).</div>`;
+    }
+    if(social){
+      html+=`<div class="detail">LunarCrush: Galaxy Score <b>${social.galaxy_score!=null?social.galaxy_score:'-'}</b> · AltRank <b>#${social.alt_rank!=null?social.alt_rank:'-'}</b> · Duyarlılık <b>%${social.sentiment!=null?social.sentiment:'-'}</b> · Sosyal baskınlık <b>%${social.social_dominance!=null?social.social_dominance.toFixed(2):'-'}</b></div>`;
+    } else if(lcKey()){
+      html+=`<div class="detail">LunarCrush: bu coin listede bulunamadı ya da veriye ulaşılamadı (skora katkı vermedi).</div>`;
     }
     html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Puan dökümü</div>${rows.join("")}</div>`;
     html+=`<div class="detail" style="margin-top:10px;color:var(--muted)">Bu skor kural-tabanlı bir göstergedir; geriye dönük doğrulanmış bir kâr modeli değildir.</div>`;
@@ -1751,6 +1921,7 @@ function clearList(){
 /* ---------- kayıtlı değerleri yükle ---------- */
 (function(){
   const k=store.get("fmpkey",""); if(k) $("s-key").value=k;
+  const lk=store.get("lunarkey",""); if(lk) $("lc-key").value=lk;
   const w=store.get("watchlist",""); if(w) $("s-list").value=w;
 
   /* son tarama sonuçlarını geri yükle (sayfa yenilenince kaybolmasın) */
