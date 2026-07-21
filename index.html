@@ -108,6 +108,10 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 .empty.on{display:block}
 .err{color:var(--red);font-size:12px;margin-top:6px}
 .warnbox{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--muted);margin-bottom:12px}
+
+.bgwarn{display:none;background:var(--surface);border:1px solid var(--amber);border-left:3px solid var(--amber);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--text);line-height:1.55;margin:0 0 12px}
+.bgwarn.on{display:block}
+.bgwarn .x{display:block;margin-top:6px;background:none;border:0;color:var(--amber);font-weight:700;font-size:12px;padding:0;cursor:pointer}
 </style>
 </head>
 <body>
@@ -116,6 +120,11 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <h1>Dip <span>Radar</span></h1>
   <p>ATH'den derin düşüş · 4s RSI pozitif uyumsuzluk · kapitülasyon · hacimli dönüş mumu</p>
 </header>
+
+<div class="bgwarn" id="bg-warn">
+  ⏸️ Uygulama arka plandayken (ekran kilidi / başka bir uygulama) iOS taramayı duraklattı — bu, tarayıcıların genel bir kısıtlaması, uygulama hatası değil. Ekranı açık tutarsan tarama artık kilit yüzünden durmayacak, ama başka bir uygulamaya geçersen yine duraklar. Devam etmek için taramayı tekrar başlat.
+  <button class="x" onclick="dismissBgWarn()">Kapat</button>
+</div>
 
 <div class="tabs">
   <div class="tab active" id="tab-crypto" onclick="switchTab('crypto')">Kripto (Binance)</div>
@@ -714,6 +723,43 @@ async function pool(items, limit, worker){
 
 function stopScan(){ abortFlag=true; }
 
+/* ---------- arka plana geçince duraklama (iOS Safari kısıtlaması) ----------
+   iOS, sekme/uygulama arka plana alındığında JS çalışmasını (dolayısıyla
+   fetch tabanlı taramaları) durdurur — istemci tarafında aşılamaz bir işletim
+   sistemi kısıtlamasıdır. Elimizden gelen: (1) ekran kilidi YÜZÜNDEN oluşan
+   duraklamaları Wake Lock API ile önlemek, (2) yine de arka plana alınırsa
+   kullanıcıyı dürüstçe bilgilendirmek. */
+let activeScans=0, wakeLock=null, wasBackgroundedDuringScan=false;
+
+async function acquireWakeLock(){
+  try{
+    if("wakeLock" in navigator){
+      const lock=await navigator.wakeLock.request("screen");
+      /* istek beklerken tüm taramalar bitmiş olabilir — geç gelen kilidi
+         hemen bırak, aksi halde ekran taramalar bittikten sonra da açık kalır */
+      if(activeScans<=0){ lock.release().catch(()=>{}); return; }
+      wakeLock=lock;
+      wakeLock.addEventListener("release", ()=>{ wakeLock=null; });
+    }
+  }catch(e){ /* desteklenmiyor, izin yok veya sayfa görünür değil */ }
+}
+function releaseWakeLock(){
+  if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock=null; }
+}
+function beginScan(){ activeScans++; if(!wakeLock) acquireWakeLock(); }
+function endScan(){ activeScans=Math.max(0,activeScans-1); if(activeScans===0) releaseWakeLock(); }
+function dismissBgWarn(){ $("bg-warn").classList.remove("on"); }
+
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState==="hidden"){
+    if(activeScans>0) wasBackgroundedDuringScan=true;
+  } else if(document.visibilityState==="visible"){
+    if(activeScans>0) acquireWakeLock();
+    if(wasBackgroundedDuringScan && activeScans>0) $("bg-warn").classList.add("on");
+    wasBackgroundedDuringScan=false;
+  }
+});
+
 /* ---------- kart çizimi ---------- */
 function renderCard(r, currency, crypto){
   const full = r.sig.score===3;
@@ -888,6 +934,7 @@ function cryptoParams(){
 
 async function scanCrypto(){
   abortFlag=false;
+  beginScan();
   const p=cryptoParams();
   const btn=$("c-scanbtn"), stop=$("c-stopbtn");
   btn.disabled=true; stop.style.display="block";
@@ -953,6 +1000,7 @@ async function scanCrypto(){
     btn.disabled=false; stop.style.display="none";
     $("c-prog").classList.remove("on");
     updateExportBtn();
+    endScan();
   }
 }
 
@@ -980,6 +1028,7 @@ async function scanStocks(){
   store.set("watchlist", $("s-list").value);
   if(!syms.length){ $("s-status").innerHTML='<span class="err">Sembol listesi boş.</span>'; return; }
 
+  beginScan();
   const p=stockParams();
   const btn=$("s-scanbtn"), stop=$("s-stopbtn");
   btn.disabled=true; stop.style.display="block";
@@ -1040,6 +1089,7 @@ async function scanStocks(){
   }
   btn.disabled=false; stop.style.display="none";
   $("s-prog").classList.remove("on");
+  endScan();
 }
 
 /* ================= SCALPING ================= */
@@ -1162,6 +1212,7 @@ function applyFilterScalp(){
 
 async function scanScalping(){
   abortFlag=false;
+  beginScan();
   const p=scalpParams();
   const btn=$("sc-scanbtn"), stop=$("sc-stopbtn");
   btn.disabled=true; stop.style.display="block";
@@ -1250,6 +1301,7 @@ async function scanScalping(){
   }finally{
     btn.disabled=false; stop.style.display="none";
     $("sc-prog").classList.remove("on");
+    endScan();
   }
 }
 
@@ -1342,6 +1394,7 @@ function applyFilterShort(){
 
 async function scanShort(){
   abortFlag=false;
+  beginScan();
   const p=shortParams();
   const btn=$("sh-scanbtn"), stop=$("sh-stopbtn");
   btn.disabled=true; stop.style.display="block";
@@ -1412,6 +1465,7 @@ async function scanShort(){
   }finally{
     btn.disabled=false; stop.style.display="none";
     $("sh-prog").classList.remove("on");
+    endScan();
   }
 }
 
@@ -1635,6 +1689,7 @@ async function analyzeCoin(){
   if(!tfs.length){ $("an-status").innerHTML='<span class="err">En az bir zaman dilimi seç.</span>'; return; }
 
   abortFlag=false;
+  beginScan();
   const btn=$("an-btn"), stop=$("an-stopbtn");
   btn.disabled=true; stop.style.display="block";
   $("an-prog").classList.add("on"); $("an-progbar").style.width="0%";
@@ -1667,6 +1722,7 @@ async function analyzeCoin(){
     : `Tamamlandı: ${okResults.length}/${tasks.length} kombinasyon.`;
   btn.disabled=false; stop.style.display="none";
   $("an-prog").classList.remove("on");
+  endScan();
 }
 
 /* ---------- hisse hazır paketleri ---------- */
