@@ -74,11 +74,14 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 .fbtn{flex:1;text-align:center;padding:8px 0;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);font-weight:700;font-size:12.5px;cursor:pointer}
 .fbtn.active{background:var(--surface2);color:var(--text);border-color:var(--amber)}
 .fcount{font-size:11.5px;color:var(--muted);text-align:right;margin:6px 2px 10px}
+.morebtn{width:100%;margin:2px 0 12px}
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px}
 .card.full-match{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
 .card-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
 .card-top .sym{font-weight:800;font-size:17px}
+.card-top .sym.linkable{cursor:pointer}
+.card-top .sym.linkable:active{opacity:.6}
 .card-top .price{color:var(--muted);font-size:13px}
 .fullmatch-tag{font-size:10px;font-weight:800;color:#161001;background:var(--amber);border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px}
 
@@ -158,6 +161,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="fcount" id="c-fcount"></div>
 
   <div id="c-results"></div>
+  <button class="ghost morebtn" id="c-morebtn" onclick="showMore('c')" style="display:none">Daha fazla göster</button>
   <div class="empty" id="c-empty">Kriterlere uyan sembol bulunamadı. Eşikleri gevşetmeyi dene (ör. düşüş %60, hacim çarpanı 2).</div>
 
   <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
@@ -212,6 +216,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="fcount" id="sc-fcount"></div>
 
   <div id="sc-results"></div>
+  <button class="ghost morebtn" id="sc-morebtn" onclick="showMore('sc')" style="display:none">Daha fazla göster</button>
   <div class="empty" id="sc-empty">Scalping kriterine uyan coin yok. Hacim çarpanını veya skor eşiğini düşürmeyi dene.</div>
 
   <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
@@ -300,6 +305,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="fcount" id="s-fcount"></div>
 
   <div id="s-results"></div>
+  <button class="ghost morebtn" id="s-morebtn" onclick="showMore('s')" style="display:none">Daha fazla göster</button>
   <div class="empty" id="s-empty">Kriterlere uyan sembol bulunamadı.</div>
   <div id="s-errors"></div>
 </div>
@@ -309,23 +315,46 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 const $ = id => document.getElementById(id);
 let abortFlag = false;
 
-/* ---------- sonuç filtreleme / temizleme ---------- */
+/* ---------- sonuç filtreleme / sayfalama / temizleme ---------- */
 const rawResults = {};             // prefix -> {list, currency}
 const filterMin = {c:2, s:2, sc:6}; // varsayılan eşikler
+const PAGE_SIZE = 25;
+const shownCount = {c:PAGE_SIZE, s:PAGE_SIZE, sc:PAGE_SIZE};
 const EMPTY_MSG = {};
 ["c","s","sc"].forEach(p=>{ const el=$(p+"-empty"); if(el) EMPTY_MSG[p]=el.textContent; });
 
+/* son taramayı localStorage'a yaz — sayfa yenilenince kaybolmasın */
+function persistResults(prefix){
+  try{
+    const data=rawResults[prefix];
+    if(data && data.list && data.list.length){
+      store.set("results:"+prefix, JSON.stringify({list:data.list, currency:data.currency||"", ts:Date.now()}));
+    } else {
+      localStorage.removeItem("dipradar:results:"+prefix);
+    }
+  }catch(e){ /* localStorage dolu/kapalı olabilir */ }
+}
+
 function setFilter(prefix, min){
   filterMin[prefix]=min;
+  shownCount[prefix]=PAGE_SIZE;
   document.querySelectorAll(`#${prefix}-filter .fbtn`).forEach(b=>{
     b.classList.toggle("active", parseInt(b.dataset.min,10)===min);
   });
   if(prefix==="sc") applyFilterScalp(); else applyFilter(prefix);
 }
 
+function showMore(prefix){
+  shownCount[prefix]+=PAGE_SIZE;
+  if(prefix==="sc") applyFilterScalp(); else applyFilter(prefix);
+}
+
 function clearResults(prefix){
   rawResults[prefix]=null;
+  shownCount[prefix]=PAGE_SIZE;
+  try{ localStorage.removeItem("dipradar:results:"+prefix); }catch(e){}
   $(prefix+"-results").innerHTML="";
+  $(prefix+"-morebtn").style.display="none";
   $(prefix+"-summary").classList.remove("on");
   $(prefix+"-filter").classList.remove("on");
   $(prefix+"-fcount").textContent="";
@@ -333,6 +362,14 @@ function clearResults(prefix){
   $(prefix+"-clearbtn").style.display="none";
   $(prefix+"-status").textContent="";
   if(prefix==="s") $("s-errors").innerHTML="";
+}
+
+/* karttaki sembole tıklayınca Coin analiz'e atla ve otomatik analiz et */
+function analyzeFromCard(symbol){
+  switchTab("crypto");
+  $("an-sym").value = symbol.replace("/USDT","").replace(/USDT$/,"");
+  $("an-sym").scrollIntoView({behavior:"smooth", block:"center"});
+  analyzeCoin();
 }
 
 const store = {
@@ -494,13 +531,14 @@ async function pool(items, limit, worker){
 function stopScan(){ abortFlag=true; }
 
 /* ---------- kart çizimi ---------- */
-function renderCard(r, currency){
+function renderCard(r, currency, crypto){
   const full = r.sig.score===3;
   const ddPct=(r.dd*100);
   const pos=Math.min(99, Math.max(1, ddPct));
+  const symAttrs = crypto ? ` class="sym linkable" onclick="analyzeFromCard('${r.symbol}')" title="Coin analiz'e git"` : ` class="sym"`;
   let html = `<div class="card ${full?'full-match':''}">
     <div class="card-top">
-      <div class="sym">${r.symbol}${full?'<span class="fullmatch-tag">TAM EŞLEŞME</span>':''}</div>
+      <div${symAttrs}>${r.symbol}${full?'<span class="fullmatch-tag">TAM EŞLEŞME</span>':''}</div>
       <div class="price mono">${fmtPrice(r.price)} ${currency}</div>
     </div>
     <div class="depth">
@@ -508,11 +546,11 @@ function renderCard(r, currency){
       <div class="labels"><span>ATH: ${fmtPrice(r.ath)}</span><span class="mono">zirveden −%${ddPct.toFixed(1)}</span></div>
     </div>
     <div class="badges">
-      ${r.sig.showIntraday ? `<span class="badge ${r.sig.div1h?'on-div':''}">Uyum. 1s ${r.sig.div1h?'✓':'—'}</span>` : ''}
-      ${r.sig.showIntraday ? `<span class="badge ${r.sig.div4h?'on-div':''}">Uyum. 4s ${r.sig.div4h?'✓':'—'}</span>` : ''}
-      <span class="badge ${r.sig.div1d?'on-div':''}">Uyum. 1g ${r.sig.div1d?'✓':'—'}</span>
-      <span class="badge ${r.sig.cap?'on-cap':''}">Kapitülasyon ${r.sig.cap?'✓':'—'}</span>
-      <span class="badge ${r.sig.rev?'on-rev':''}">Dönüş mumu ${r.sig.rev?'✓':'—'}</span>
+      ${r.sig.showIntraday && r.sig.div1h ? `<span class="badge on-div">Uyum. 1s ✓</span>` : ''}
+      ${r.sig.showIntraday && r.sig.div4h ? `<span class="badge on-div">Uyum. 4s ✓</span>` : ''}
+      ${r.sig.div1d ? `<span class="badge on-div">Uyum. 1g ✓</span>` : ''}
+      ${r.sig.cap ? `<span class="badge on-cap">Kapitülasyon ✓</span>` : ''}
+      ${r.sig.rev ? `<span class="badge on-rev">Dönüş mumu ✓</span>` : ''}
     </div>
     <div class="detail">`;
   const dv=(tag,d)=> d?`Uyumsuzluk ${tag}: RSI dip <b>${d.rsi1.toFixed(1)} → ${d.rsi2.toFixed(1)}</b> (${d.barsAgo} mum önce) · `:"";
@@ -526,11 +564,13 @@ function renderCard(r, currency){
 function renderResults(list, prefix, currency){
   list.sort((a,b)=> b.sig.score-a.sig.score || b.sig.divCount-a.sig.divCount || b.dd-a.dd);
   rawResults[prefix]={list, currency};
+  shownCount[prefix]=PAGE_SIZE;
   $(prefix+"-s-signal").textContent=list.length;
   $(prefix+"-s-full").textContent=list.filter(r=>r.sig.score===3).length;
   $(prefix+"-summary").classList.add("on");
   $(prefix+"-filter").classList.toggle("on", list.length>0);
   $(prefix+"-clearbtn").style.display=list.length>0?"block":"none";
+  persistResults(prefix);
   applyFilter(prefix);
 }
 
@@ -539,8 +579,11 @@ function applyFilter(prefix){
   const box=$(prefix+"-results");
   const emptyEl=$(prefix+"-empty");
   const countEl=$(prefix+"-fcount");
+  const moreBtn=$(prefix+"-morebtn");
+  const crypto = prefix==="c";
   if(!data || !data.list.length){
     box.innerHTML="";
+    moreBtn.style.display="none";
     emptyEl.textContent=EMPTY_MSG[prefix];
     emptyEl.classList.toggle("on", !!data);
     countEl.textContent="";
@@ -548,10 +591,14 @@ function applyFilter(prefix){
   }
   const min=filterMin[prefix];
   const filtered=data.list.filter(r=>r.sig.score>=min);
-  box.innerHTML=filtered.map(r=>renderCard(r,data.currency)).join("");
+  const shown=filtered.slice(0, shownCount[prefix]);
+  box.innerHTML=shown.map(r=>renderCard(r,data.currency,crypto)).join("");
+  const remaining=filtered.length-shown.length;
+  moreBtn.style.display=remaining>0?"block":"none";
+  moreBtn.textContent=`Daha fazla göster (+${remaining})`;
   emptyEl.classList.toggle("on", filtered.length===0);
   emptyEl.textContent = filtered.length===0 ? 'Bu filtrede sonuç yok. "Tümü"nü dene.' : EMPTY_MSG[prefix];
-  countEl.textContent = `${filtered.length} / ${data.list.length} gösteriliyor`;
+  countEl.textContent = `${shown.length} / ${filtered.length} gösteriliyor (toplam ${data.list.length} sinyalli)`;
 }
 
 /* ---------- KRİPTO (Binance) ---------- */
@@ -663,7 +710,7 @@ async function scanCrypto(){
   $("c-prog").classList.add("on"); $("c-progbar").style.width="0%";
   $("c-results").innerHTML=""; $("c-empty").classList.remove("on");
   $("c-summary").classList.remove("on"); $("c-filter").classList.remove("on");
-  $("c-clearbtn").style.display="none"; rawResults.c=null;
+  $("c-clearbtn").style.display="none"; $("c-morebtn").style.display="none"; rawResults.c=null;
   const status=$("c-status");
   const results=[];
   let gateCount=0, done=0;
@@ -755,7 +802,7 @@ async function scanStocks(){
   $("s-prog").classList.add("on"); $("s-progbar").style.width="0%";
   $("s-results").innerHTML=""; $("s-errors").innerHTML="";
   $("s-empty").classList.remove("on"); $("s-summary").classList.remove("on");
-  $("s-filter").classList.remove("on"); $("s-clearbtn").style.display="none"; rawResults.s=null;
+  $("s-filter").classList.remove("on"); $("s-clearbtn").style.display="none"; $("s-morebtn").style.display="none"; rawResults.s=null;
   const status=$("s-status");
   const results=[], errors=[];
   let gateCount=0, done=0;
@@ -888,7 +935,7 @@ function renderScalpCard(r){
   const gradeColor = r.grade==="A"?"var(--green)":(r.grade==="B"?"var(--amber)":"var(--muted)");
   let html=`<div class="card ${r.grade==="A"?'full-match':''}">
     <div class="card-top">
-      <div class="sym">${r.symbol}<span class="fullmatch-tag" style="background:${gradeColor}">${r.grade} · ${r.score}p</span></div>
+      <div class="sym linkable" onclick="analyzeFromCard('${r.symbol}')" title="Coin analiz'e git">${r.symbol}<span class="fullmatch-tag" style="background:${gradeColor}">${r.grade} · ${r.score}p</span></div>
       <div class="price mono">${fmtPrice(r.price)} USDT</div>
     </div>
     <div class="badges">
@@ -908,8 +955,10 @@ function applyFilterScalp(){
   const box=$("sc-results");
   const emptyEl=$("sc-empty");
   const countEl=$("sc-fcount");
+  const moreBtn=$("sc-morebtn");
   if(!data || !data.list.length){
     box.innerHTML="";
+    moreBtn.style.display="none";
     emptyEl.textContent=EMPTY_MSG.sc;
     emptyEl.classList.toggle("on", !!data);
     countEl.textContent="";
@@ -917,10 +966,14 @@ function applyFilterScalp(){
   }
   const min=filterMin.sc;
   const filtered=data.list.filter(r=>r.score>=min);
-  box.innerHTML=filtered.map(renderScalpCard).join("");
+  const shown=filtered.slice(0, shownCount.sc);
+  box.innerHTML=shown.map(renderScalpCard).join("");
+  const remaining=filtered.length-shown.length;
+  moreBtn.style.display=remaining>0?"block":"none";
+  moreBtn.textContent=`Daha fazla göster (+${remaining})`;
   emptyEl.classList.toggle("on", filtered.length===0);
   emptyEl.textContent = filtered.length===0 ? 'Bu filtrede sonuç yok. "Tümü"nü dene.' : EMPTY_MSG.sc;
-  countEl.textContent = `${filtered.length} / ${data.list.length} gösteriliyor`;
+  countEl.textContent = `${shown.length} / ${filtered.length} gösteriliyor (toplam ${data.list.length} sinyalli)`;
 }
 
 async function scanScalping(){
@@ -931,7 +984,7 @@ async function scanScalping(){
   $("sc-prog").classList.add("on"); $("sc-progbar").style.width="0%";
   $("sc-results").innerHTML=""; $("sc-empty").classList.remove("on");
   $("sc-summary").classList.remove("on");
-  $("sc-filter").classList.remove("on"); $("sc-clearbtn").style.display="none"; rawResults.sc=null;
+  $("sc-filter").classList.remove("on"); $("sc-clearbtn").style.display="none"; $("sc-morebtn").style.display="none"; rawResults.sc=null;
   const status=$("sc-status");
   const results=[]; let cvdPass=0, done=0;
 
@@ -999,11 +1052,13 @@ async function scanScalping(){
 
     results.sort((a,b)=>b.score-a.score);
     rawResults.sc={list:results};
+    shownCount.sc=PAGE_SIZE;
     $("sc-s-signal").textContent=results.length;
     $("sc-s-a").textContent=results.filter(r=>r.grade==="A").length;
     $("sc-summary").classList.add("on");
     $("sc-filter").classList.toggle("on", results.length>0);
     $("sc-clearbtn").style.display=results.length>0?"block":"none";
+    persistResults("sc");
     applyFilterScalp();
     status.textContent=abortFlag?"Tarama durduruldu.":"Scalping taraması tamamlandı.";
   }catch(e){
@@ -1244,6 +1299,36 @@ function clearList(){
 (function(){
   const k=store.get("fmpkey",""); if(k) $("s-key").value=k;
   const w=store.get("watchlist",""); if(w) $("s-list").value=w;
+
+  /* son tarama sonuçlarını geri yükle (sayfa yenilenince kaybolmasın) */
+  ["c","s"].forEach(p=>{
+    const raw=store.get("results:"+p,"");
+    if(!raw) return;
+    try{
+      const saved=JSON.parse(raw);
+      if(saved && saved.list && saved.list.length){
+        renderResults(saved.list, p, saved.currency);
+        $(p+"-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
+      }
+    }catch(e){}
+  });
+  const rawSc=store.get("results:sc","");
+  if(rawSc){
+    try{
+      const saved=JSON.parse(rawSc);
+      if(saved && saved.list && saved.list.length){
+        rawResults.sc={list:saved.list};
+        shownCount.sc=PAGE_SIZE;
+        $("sc-s-signal").textContent=saved.list.length;
+        $("sc-s-a").textContent=saved.list.filter(r=>r.grade==="A").length;
+        $("sc-summary").classList.add("on");
+        $("sc-filter").classList.toggle("on", true);
+        $("sc-clearbtn").style.display="block";
+        applyFilterScalp();
+        $("sc-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
+      }
+    }catch(e){}
+  }
 })();
 </script>
 </body>
