@@ -1686,6 +1686,43 @@ async function fetchSectorMomentum(symBase){
   }catch(e){ return null; }
 }
 
+/* FMP kripto haberleri — Hisse sekmesindeki kayıtlı anahtar tekrar kullanılır.
+   Sembole özel bir "search" uç noktası tahmin etmek yerine genel akış bir kez
+   çekilip 10 dakika önbelleğe alınır, coin başına istemci tarafında filtrelenir. */
+let cryptoNewsCache=null; // {ts, items} veya bekleyen Promise
+
+async function fetchCryptoNewsFeed(){
+  const key=$("s-key").value.trim();
+  if(!key) return null;
+  if(cryptoNewsCache && !(cryptoNewsCache instanceof Promise) && Date.now()-cryptoNewsCache.ts<10*60*1000) return cryptoNewsCache;
+  if(cryptoNewsCache instanceof Promise) return cryptoNewsCache;
+  const p=(async()=>{
+    try{
+      const r=await fetch(`https://financialmodelingprep.com/stable/crypto-news?limit=250&apikey=${encodeURIComponent(key)}`);
+      if(!r.ok) return null;
+      const j=await r.json();
+      const items=Array.isArray(j) ? j : (j && (j.data||j.news||j.articles)) || null;
+      if(!Array.isArray(items)) return null;
+      return {ts:Date.now(), items};
+    }catch(e){ return null; } /* ağ hatası / yanlış uç nokta — sessizce atla */
+  })();
+  cryptoNewsCache=p;
+  const result=await p;
+  cryptoNewsCache=result;
+  return result;
+}
+
+async function newsFor(base, limit){
+  const feed=await fetchCryptoNewsFeed();
+  if(!feed) return null;
+  const b=base.toUpperCase(), needle=base.toLowerCase();
+  return feed.items.filter(it=>{
+    const sym=String(it.symbol||"").toUpperCase();
+    if(sym.includes(b)) return true;
+    return String(it.title||"").toLowerCase().includes(needle);
+  }).slice(0, limit);
+}
+
 function scoreBar(label, longP, shortP){
   return `<div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin:2px 0"><span>${label}</span><span class="mono">L+${longP} · S+${shortP}</span></div>`;
 }
@@ -1727,6 +1764,9 @@ async function analyzeOne(base, tf, sectorCache){
 
     /* LunarCrush: anahtar yoksa veya coin listede yoksa null döner, skora katkı vermez */
     const social=lcKey() ? await lcLookup(base) : null;
+
+    /* FMP kripto haberleri: sadece bağlam amaçlı, skora katkı vermez */
+    const news=await newsFor(base, 3);
 
     /* -------- kural-tabanlı skor -------- */
     let L=0,S=0; const rows=[];
@@ -1835,6 +1875,20 @@ async function analyzeOne(base, tf, sectorCache){
     }
     html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Puan dökümü</div>${rows.join("")}</div>`;
     html+=`<div class="detail" style="margin-top:10px;color:var(--muted)">Bu skor kural-tabanlı bir göstergedir; geriye dönük doğrulanmış bir kâr modeli değildir.</div>`;
+    if(news && news.length){
+      html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Son haberler (FMP)</div>`;
+      html+=news.map(it=>{
+        const safeUrl=/^https?:\/\//i.test(it.url||"") ? it.url : null;
+        const titleHtml=escapeHtml(it.title||"Başlıksız");
+        const src=escapeHtml(it.site||it.publisher||"");
+        const date=it.publishedDate ? escapeHtml(String(it.publishedDate).slice(0,10)) : "";
+        const link=safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener" style="color:var(--blue)">${titleHtml}</a>` : titleHtml;
+        return `<div class="detail" style="margin:2px 0">${link}${src?` · <span style="color:var(--muted)">${src}</span>`:''}${date?` · <span class="mono" style="color:var(--muted)">${date}</span>`:''}</div>`;
+      }).join("");
+      html+=`</div>`;
+    } else if($("s-key").value.trim()){
+      html+=`<div class="detail" style="margin-top:10px;color:var(--muted)">Son haberler: bu coinle ilgili haber bulunamadı ya da FMP'ye ulaşılamadı.</div>`;
+    }
     html+=`</div>`;
     return {ok:true, base, tf, html, L, S};
   }catch(e){
