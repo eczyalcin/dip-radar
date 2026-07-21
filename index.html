@@ -380,6 +380,15 @@ function analyzeFromCard(symbol){
   analyzeCoin();
 }
 
+/* satır-içi onclick yerine tek bir delege edilmiş dinleyici — sembol verisi
+   bir JS string literal'ine değil, düz bir HTML özniteliğine (data-symbol)
+   gömülüyor; böylece sembolde tırnak karakteri olsa bile kod enjeksiyonu
+   mümkün olmaz */
+document.addEventListener("click", (e)=>{
+  const el=e.target.closest(".sym.linkable");
+  if(el && el.dataset.symbol) analyzeFromCard(el.dataset.symbol);
+});
+
 const store = {
   get(k, d){ try{ const v = localStorage.getItem("dipradar:"+k); return v===null? d : v; }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem("dipradar:"+k, v); }catch(e){} }
@@ -390,6 +399,11 @@ function switchTab(t){
     $("tab-"+x).classList.toggle("active", x===t);
     $("panel-"+x).classList.toggle("active", x===t);
   });
+}
+
+const HTML_ESC={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>HTML_ESC[c]);
 }
 
 function fmtPrice(p){
@@ -543,11 +557,11 @@ function renderCard(r, currency, crypto){
   const full = r.sig.score===3;
   const ddPct=(r.dd*100);
   const pos=Math.min(99, Math.max(1, ddPct));
-  const symAttrs = crypto ? ` class="sym linkable" onclick="analyzeFromCard('${r.symbol}')" title="Coin analiz'e git"` : ` class="sym"`;
+  const symAttrs = crypto ? ` class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git"` : ` class="sym"`;
   let html = `<div class="card ${full?'full-match':''}">
     <div class="card-top">
-      <div${symAttrs}>${r.symbol}${full?'<span class="fullmatch-tag">TAM EŞLEŞME</span>':''}</div>
-      <div class="price mono">${fmtPrice(r.price)} ${currency}</div>
+      <div${symAttrs}>${escapeHtml(r.symbol)}${full?'<span class="fullmatch-tag">TAM EŞLEŞME</span>':''}</div>
+      <div class="price mono">${fmtPrice(r.price)} ${escapeHtml(currency)}</div>
     </div>
     <div class="depth">
       <div class="track"><span class="marker" style="left:${pos}%"></span></div>
@@ -569,7 +583,7 @@ function renderCard(r, currency, crypto){
   return html;
 }
 
-function renderResults(list, prefix, currency){
+function renderResults(list, prefix, currency, skipPersist){
   list.sort((a,b)=> b.sig.score-a.sig.score || b.sig.divCount-a.sig.divCount || b.dd-a.dd);
   rawResults[prefix]={list, currency};
   shownCount[prefix]=PAGE_SIZE;
@@ -578,7 +592,7 @@ function renderResults(list, prefix, currency){
   $(prefix+"-summary").classList.add("on");
   $(prefix+"-filter").classList.toggle("on", list.length>0);
   $(prefix+"-clearbtn").style.display=list.length>0?"block":"none";
-  persistResults(prefix);
+  if(!skipPersist) persistResults(prefix);
   applyFilter(prefix);
 }
 
@@ -860,7 +874,7 @@ async function scanStocks(){
   status.textContent=abortFlag?"Tarama durduruldu.":"Tarama tamamlandı. (Not: zirve, FMP geçmişiyle sınırlıdır — gerçek ATH olmayabilir.)";
   renderResults(results,"s","");
   if(errors.length){
-    $("s-errors").innerHTML='<div class="warnbox">'+errors.map(e=>"• "+e).join("<br>")+"</div>";
+    $("s-errors").innerHTML='<div class="warnbox">'+errors.map(e=>"• "+escapeHtml(e)).join("<br>")+"</div>";
   }
   btn.disabled=false; stop.style.display="none";
   $("s-prog").classList.remove("on");
@@ -943,7 +957,7 @@ function renderScalpCard(r){
   const gradeColor = r.grade==="A"?"var(--green)":(r.grade==="B"?"var(--amber)":"var(--muted)");
   let html=`<div class="card ${r.grade==="A"?'full-match':''}">
     <div class="card-top">
-      <div class="sym linkable" onclick="analyzeFromCard('${r.symbol}')" title="Coin analiz'e git">${r.symbol}<span class="fullmatch-tag" style="background:${gradeColor}">${r.grade} · ${r.score}p</span></div>
+      <div class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git">${escapeHtml(r.symbol)}<span class="fullmatch-tag" style="background:${gradeColor}">${r.grade} · ${r.score}p</span></div>
       <div class="price mono">${fmtPrice(r.price)} USDT</div>
     </div>
     <div class="badges">
@@ -1171,7 +1185,7 @@ async function analyzeOne(base, tf, sectorCache){
     const fut=await fetchKlinesTB(FUT, symbol, tf, 40);
     const bp=fut?buyerPressure(fut,3):(spot?buyerPressure(spot,3):{net:0,positive:false});
     const cvdPos=bp.positive;
-    const oiPeriod=(tf==="1h")?"1h":(tf==="1w"?"1d":(tf==="5m"?"5m":(tf==="1d"?"1d":"15m")));
+    const oiPeriod=OI_PERIOD_MAP[tf] || "15m";
     const oi=fut?await fetchOIchange(symbol, oiPeriod):null;
     const funding=fut?await fetchFunding(symbol):null;
 
@@ -1243,7 +1257,7 @@ async function analyzeOne(base, tf, sectorCache){
 
     let html=`<div class="card" style="border-color:${biasColor}">
       <div class="card-top">
-        <div class="sym">${base}/USDT <span style="font-size:12px;color:var(--muted)">${tf}</span></div>
+        <div class="sym">${escapeHtml(base)}/USDT <span style="font-size:12px;color:var(--muted)">${escapeHtml(tf)}</span></div>
         <div class="price mono">${fmtPrice(price)} USDT</div>
       </div>
       <div style="display:flex;gap:10px;margin:8px 0 12px">
@@ -1281,6 +1295,9 @@ async function analyzeOne(base, tf, sectorCache){
 }
 
 const TF_ORDER=["5m","15m","1h","4h","1d","1w"];
+/* Binance openInterestHist geçerli periyotları: 5m/15m/30m/1h/2h/4h/6h/12h/1d.
+   Coin analiz zaman dilimini olabildiğince aynı granülerlikteki OI verisiyle eşleştir. */
+const OI_PERIOD_MAP={"5m":"5m","15m":"15m","1h":"1h","4h":"4h","1d":"1d","1w":"1d"};
 
 async function analyzeCoin(){
   const symbols=[...new Set($("an-sym").value.split(",")
@@ -1319,7 +1336,7 @@ async function analyzeCoin(){
 
   $("an-result").innerHTML = okResults.map(r=>r.html).join("");
   if(errResults.length){
-    $("an-result").innerHTML += '<div class="warnbox">'+errResults.map(e=>"• "+e.error).join("<br>")+"</div>";
+    $("an-result").innerHTML += '<div class="warnbox">'+errResults.map(e=>"• "+escapeHtml(e.error)).join("<br>")+"</div>";
   }
   status.textContent = abortFlag
     ? `Analiz durduruldu. ${okResults.length}/${tasks.length} tamamlandı.`
@@ -1363,7 +1380,7 @@ function clearList(){
     try{
       const saved=JSON.parse(raw);
       if(saved && saved.list && saved.list.length){
-        renderResults(saved.list, p, saved.currency);
+        renderResults(saved.list, p, saved.currency, true);
         $(p+"-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
       }
     }catch(e){}
