@@ -246,10 +246,15 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 
   <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
   <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Scalping <span style="color:var(--amber)">sinyal</span></h1>
-  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Hacim patlaması + fiyat ↑ + OI ↑ + alıcı baskısı · sert kapı: CVD(vekil) pozitif & skor ≥ 4</p>
+  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Hacim patlaması + fiyat yönü + OI ↑ + alıcı/satıcı baskısı · sert kapı: CVD(vekil) yönlü & skor ≥ 4</p>
+
+  <div class="filterbar on" id="sc-dir">
+    <div class="fbtn active" data-dir="long" onclick="setScalpDir('long')">Long</div>
+    <div class="fbtn" data-dir="short" onclick="setScalpDir('short')">Short</div>
+  </div>
 
   <div class="warnbox">
-    <b>CVD proxy uyarısı:</b> Gerçek CVD yerine mum taker-buy hacmi kullanılır. OI ve funding yalnızca futures'ı olan coinlerde; futures'ı olmayan coin CVD kapısından geçemez. Çok sayıda coin Binance hız sınırına takabilir — evreni küçük tut.
+    <b>CVD proxy uyarısı:</b> Gerçek CVD yerine mum taker-buy hacmi kullanılır. Long'da hem spot hem futures alıcı baskısı, Short'ta ise hem spot hem futures satıcı baskısı aranır. OI ve funding yalnızca futures'ı olan coinlerde; futures'ı olmayan coin CVD kapısından geçemez. Çok sayıda coin Binance hız sınırına takabilir — evreni küçük tut.
   </div>
 
   <details class="settings">
@@ -1262,12 +1267,12 @@ async function fetchKlinesTB(base, symbol, interval, limit){
   }catch(e){ return null; }
 }
 
-/* alıcı baskısı vekili: son win mumda toplam (2*takerBuy - hacim) > 0 mı */
+/* alıcı/satıcı baskısı vekili: son win mumda toplam (2*takerBuy - hacim) */
 function buyerPressure(s, win){
-  if(!s || s.v.length<win) return {net:0, positive:false};
+  if(!s || s.v.length<win) return {net:0, positive:false, negative:false};
   let net=0;
   for(let i=s.v.length-win;i<s.v.length;i++) net += (2*s.tb[i] - s.v[i]);
-  return {net, positive: net>0};
+  return {net, positive: net>0, negative: net<0};
 }
 function volExplode(s, win, mult){
   if(!s || s.v.length<21) return false;
@@ -1304,6 +1309,15 @@ function gradeOf(score){
   return "C";
 }
 
+let scalpDir="long"; // "long" | "short"
+function setScalpDir(dir){
+  scalpDir=dir;
+  document.querySelectorAll('#sc-dir .fbtn').forEach(b=>{
+    b.classList.toggle("active", b.dataset.dir===dir);
+  });
+  $("sc-scanbtn").textContent = dir==="short" ? "Short scalping taramasını başlat" : "Scalping taramasını başlat";
+}
+
 function scalpParams(){
   return {
     tf: $("sc-tf").value,
@@ -1318,17 +1332,19 @@ function scalpParams(){
 }
 
 function renderScalpCard(r){
+  const isShort=r.dir==="short";
+  const dirBadgeClass=isShort?"on-cap":"on-rev";
   const gradeColor = r.grade==="A"?"var(--green)":(r.grade==="B"?"var(--amber)":"var(--muted)");
   let html=`<div class="card ${r.grade==="A"?'full-match':''}">
     <div class="card-top">
-      <div class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git">${escapeHtml(r.symbol)}<span class="fullmatch-tag" style="background:${gradeColor}">${r.grade} · ${r.score}p</span></div>
+      <div class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git">${escapeHtml(r.symbol)}<span class="fullmatch-tag" style="background:${gradeColor}">${r.grade} · ${r.score}p ${isShort?'· SHORT':''}</span></div>
       <div class="price mono">${fmtPrice(r.price)} USDT</div>
     </div>
     <div class="badges">
-      <span class="badge on-rev">Fiyat +%${(r.priceChg*100).toFixed(2)}</span>
+      <span class="badge ${dirBadgeClass}">Fiyat ${r.priceChg>=0?'+':''}${(r.priceChg*100).toFixed(2)}%</span>
       ${r.oi!=null?`<span class="badge ${r.oi>=0?'on-rev':'on-cap'}">OI %${(r.oi*100).toFixed(2)}</span>`:'<span class="badge">OI yok</span>'}
       ${r.funding!=null?`<span class="badge on-div">Funding %${(r.funding*100).toFixed(3)}</span>`:''}
-      <span class="badge on-div">CVD+ (spot & fut)</span>
+      <span class="badge ${dirBadgeClass}">${isShort?'CVD− (spot & fut)':'CVD+ (spot & fut)'}</span>
     </div>
     <div class="detail">Puan dökümü: `;
   html+=r.reasons.join(" · ");
@@ -1365,6 +1381,7 @@ function applyFilterScalp(){
 async function scanScalping(){
   abortFlag=false;
   beginScan();
+  const dir=scalpDir; // taramanın tamamı boyunca sabit — sırasında toggle değişse de tarama tutarlı kalır
   const p=scalpParams();
   const btn=$("sc-scanbtn"), stop=$("sc-stopbtn");
   btn.disabled=true; stop.style.display="block";
@@ -1399,9 +1416,10 @@ async function scanScalping(){
         ]);
         if(!fut) return;               // futures zorunlu
         const bpF=buyerPressure(fut, p.win);
-        const bpS=spot?buyerPressure(spot, p.win):{positive:false};
-        /* SERT KAPI 1: hem spot hem futures alıcı baskısı > 0 */
-        if(!(bpF.positive && bpS.positive)) return;
+        const bpS=spot?buyerPressure(spot, p.win):{net:0,positive:false,negative:false};
+        /* SERT KAPI 1: Long'da hem spot hem futures alıcı baskısı, Short'ta ikisi de satıcı baskısı */
+        const cvdGateOk = dir==="short" ? (bpF.negative && bpS.negative) : (bpF.positive && bpS.positive);
+        if(!cvdGateOk) return;
         cvdPass++;
 
         let score=0; const reasons=[];
@@ -1412,12 +1430,13 @@ async function scanScalping(){
         else if(futEx){ score+=1; reasons.push("Sadece fut hacim (+1)"); }
 
         const c=fut.c; const priceChg = c.length>=2 ? (c[c.length-1]/c[c.length-2]-1) : 0;
-        if(priceChg >= p.priceMin){ score+=2; reasons.push("Fiyat ↑ (+2)"); }
+        const priceOk = dir==="short" ? (priceChg <= -p.priceMin) : (priceChg >= p.priceMin);
+        if(priceOk){ score+=2; reasons.push(dir==="short"?"Fiyat ↓ (+2)":"Fiyat ↑ (+2)"); }
 
         const oi=await fetchOIchange(u.symbol, oiPeriod);
         if(oi!=null && oi >= p.oiMin){ score+=2; reasons.push("OI ↑ (+2)"); }
 
-        score+=2; reasons.push("CVD+ (+2)"); // kapıdan geçti, zaten pozitif
+        score+=2; reasons.push(dir==="short"?"CVD− (+2)":"CVD+ (+2)"); // kapıdan geçti, zaten yönlü
 
         const funding=await fetchFunding(u.symbol);
         if(funding!=null && Math.abs(funding) <= p.fundMax){ score+=1; reasons.push("Funding dengeli (+1)"); }
@@ -1425,7 +1444,7 @@ async function scanScalping(){
         /* SERT KAPI 2: skor eşiği */
         if(score < p.scoreMin) return;
 
-        results.push({symbol:u.symbol.replace("USDT","/USDT"), price:u.price,
+        results.push({symbol:u.symbol.replace("USDT","/USDT"), price:u.price, dir,
           score, grade:gradeOf(score), priceChg, oi, funding, reasons});
       }catch(e){ /* tek sembol hatası taramayı durdurmasın */ }
       finally{
