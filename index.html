@@ -76,6 +76,11 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 .fcount{font-size:11.5px;color:var(--muted);text-align:right;margin:6px 2px 10px}
 .morebtn{width:100%;margin:2px 0 12px}
 
+.tfpicker{display:flex;flex-wrap:wrap;gap:8px}
+.tfchip{display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;user-select:none}
+.tfchip input{accent-color:var(--amber)}
+.tfchip.checked{background:var(--surface2);color:var(--text);border-color:var(--amber)}
+
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px}
 .card.full-match{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
 .card-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
@@ -221,25 +226,28 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 
   <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
   <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Coin <span style="color:var(--amber)">analiz</span></h1>
-  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Tek coin · çoklu metrik · kural-tabanlı Long/Short skoru (kâr garantisi değil)</p>
+  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Çoklu coin · çoklu zaman dilimi · kural-tabanlı Long/Short skoru (kâr garantisi değil)</p>
 
   <div class="settings-body" style="padding:0 0 12px">
-    <div class="field"><label>Zaman dilimi</label>
-      <select id="an-tf" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
-        <option value="15m">15 dakika</option>
-        <option value="1h">1 saat</option>
-        <option value="4h" selected>4 saat</option>
-        <option value="1d">Günlük</option>
-        <option value="1w">Haftalık</option>
-      </select>
+    <div class="field full"><label>Zaman dilimleri (birden çok seçilebilir)</label>
+      <div class="tfpicker" id="an-tf-picker">
+        <label class="tfchip"><input type="checkbox" value="15m" onchange="toggleTfChip(this)"> 15 dakika</label>
+        <label class="tfchip"><input type="checkbox" value="1h" onchange="toggleTfChip(this)"> 1 saat</label>
+        <label class="tfchip checked"><input type="checkbox" value="4h" checked onchange="toggleTfChip(this)"> 4 saat</label>
+        <label class="tfchip"><input type="checkbox" value="1d" onchange="toggleTfChip(this)"> Günlük</label>
+        <label class="tfchip"><input type="checkbox" value="1w" onchange="toggleTfChip(this)"> Haftalık</label>
+      </div>
     </div>
-    <div class="field"><label>Coin (ör. BTC, ETH, SOL)</label><input type="text" id="an-sym" placeholder="BTC" autocapitalize="characters"></div>
+    <div class="field full"><label>Coin(ler) (virgülle ayır; ör. BTC, ETH, SOL)</label><input type="text" id="an-sym" placeholder="BTC, ETH, SOL" autocapitalize="characters"></div>
   </div>
+  <p class="hint">Seçtiğin her coin, seçtiğin her zaman dilimiyle ayrı ayrı taranır (ör. 3 coin × 2 zaman dilimi = 6 kart). Çok sayıda kombinasyon taramayı yavaşlatabilir ve API hız sınırına takılabilir.</p>
 
   <div class="scanbar">
-    <button class="primary" id="an-btn" onclick="analyzeCoin()">Coini analiz et</button>
+    <button class="primary" id="an-btn" onclick="analyzeCoin()">Coinleri analiz et</button>
+    <button class="ghost" id="an-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
   </div>
 
+  <div class="progress" id="an-prog"><i id="an-progbar"></i></div>
   <div class="status" id="an-status"></div>
   <div id="an-result"></div>
 </div>
@@ -1137,18 +1145,18 @@ function scoreBar(label, longP, shortP){
   return `<div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin:2px 0"><span>${label}</span><span class="mono">L+${longP} · S+${shortP}</span></div>`;
 }
 
-async function analyzeCoin(){
-  const raw=$("an-sym").value.trim().toUpperCase().replace("/","");
-  if(!raw){ $("an-status").innerHTML='<span class="err">Coin gir (ör. BTC).</span>'; return; }
-  const base=raw.replace(/USDT$/,"");
-  const symbol=base+"USDT";
-  const tf=$("an-tf").value;
-  const btn=$("an-btn"); btn.disabled=true;
-  $("an-result").innerHTML=""; $("an-status").textContent=`${symbol} analiz ediliyor…`;
+function toggleTfChip(cb){
+  cb.closest(".tfchip").classList.toggle("checked", cb.checked);
+}
 
+/* tek coin × tek zaman dilimi analizi — html kart döndürür, DOM'a dokunmaz */
+async function analyzeOne(base, tf, sectorCache){
+  const symbol=base+"USDT";
   try{
     const spot=await fetchKlinesTB(SPOT, symbol, tf, 260);
-    if(!spot || spot.c.length<60){ $("an-status").innerHTML=`<span class="err">${symbol} için yeterli veri yok. Sembolü kontrol et.</span>`; btn.disabled=false; return; }
+    if(!spot || spot.c.length<60){
+      return {ok:false, base, tf, error:`${symbol} (${tf}): yeterli veri yok. Sembolü kontrol et.`};
+    }
     const c=spot.c, v=spot.v;
     const n=c.length-1, price=c[n];
 
@@ -1167,7 +1175,10 @@ async function analyzeCoin(){
     const oi=fut?await fetchOIchange(symbol, oiPeriod):null;
     const funding=fut?await fetchFunding(symbol):null;
 
-    const sector=await fetchSectorMomentum(base);
+    /* promise'i önbelleğe al (sonucu değil) — aynı coin eşzamanlı birden çok
+       zaman diliminde taranınca CoinGecko'ya çift istek atılmasın */
+    if(!sectorCache.has(base)) sectorCache.set(base, fetchSectorMomentum(base));
+    const sector=await sectorCache.get(base);
 
     /* -------- kural-tabanlı skor -------- */
     let L=0,S=0; const rows=[];
@@ -1263,13 +1274,58 @@ async function analyzeCoin(){
     html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Puan dökümü</div>${rows.join("")}</div>`;
     html+=`<div class="detail" style="margin-top:10px;color:var(--muted)">Bu skor kural-tabanlı bir göstergedir; geriye dönük doğrulanmış bir kâr modeli değildir.</div>`;
     html+=`</div>`;
-    $("an-result").innerHTML=html;
-    $("an-status").textContent="";
+    return {ok:true, base, tf, html, L, S};
   }catch(e){
-    $("an-status").innerHTML=`<span class="err">Hata: ${e.message}</span>`;
-  }finally{
-    btn.disabled=false;
+    return {ok:false, base, tf, error:`${symbol} (${tf}): ${e.message}`};
   }
+}
+
+const TF_ORDER=["5m","15m","1h","4h","1d","1w"];
+
+async function analyzeCoin(){
+  const symbols=[...new Set($("an-sym").value.split(",")
+    .map(s=>s.trim().toUpperCase().replace("/","").replace(/USDT$/,""))
+    .filter(Boolean))];
+  const tfs=[...document.querySelectorAll('#an-tf-picker input:checked')]
+    .map(x=>x.value)
+    .sort((a,b)=>TF_ORDER.indexOf(a)-TF_ORDER.indexOf(b));
+
+  if(!symbols.length){ $("an-status").innerHTML='<span class="err">En az bir coin gir (ör. BTC).</span>'; return; }
+  if(!tfs.length){ $("an-status").innerHTML='<span class="err">En az bir zaman dilimi seç.</span>'; return; }
+
+  abortFlag=false;
+  const btn=$("an-btn"), stop=$("an-stopbtn");
+  btn.disabled=true; stop.style.display="block";
+  $("an-prog").classList.add("on"); $("an-progbar").style.width="0%";
+  $("an-result").innerHTML="";
+  const status=$("an-status");
+
+  const tasks=[];
+  symbols.forEach(sym=>tfs.forEach(tf=>tasks.push({sym,tf})));
+  const results=new Array(tasks.length);
+  const sectorCache=new Map();
+  let done=0;
+  status.textContent=`0/${tasks.length} kombinasyon taranıyor…`;
+
+  await pool(tasks, 3, async (t, i)=>{
+    results[i]=await analyzeOne(t.sym, t.tf, sectorCache);
+    done++;
+    $("an-progbar").style.width=(done/tasks.length*100).toFixed(1)+"%";
+    status.textContent=`${t.sym} ${t.tf} · ${done}/${tasks.length}`;
+  });
+
+  const okResults=results.filter(r=>r && r.ok);
+  const errResults=results.filter(r=>r && !r.ok);
+
+  $("an-result").innerHTML = okResults.map(r=>r.html).join("");
+  if(errResults.length){
+    $("an-result").innerHTML += '<div class="warnbox">'+errResults.map(e=>"• "+e.error).join("<br>")+"</div>";
+  }
+  status.textContent = abortFlag
+    ? `Analiz durduruldu. ${okResults.length}/${tasks.length} tamamlandı.`
+    : `Tamamlandı: ${okResults.length}/${tasks.length} kombinasyon.`;
+  btn.disabled=false; stop.style.display="none";
+  $("an-prog").classList.remove("on");
 }
 
 /* ---------- hisse hazır paketleri ---------- */
