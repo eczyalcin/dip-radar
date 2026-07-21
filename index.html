@@ -69,6 +69,12 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 .stat b{display:block;font-size:20px;font-weight:800}
 .stat span{font-size:11px;color:var(--muted)}
 
+.filterbar{display:none;gap:8px;margin-bottom:4px}
+.filterbar.on{display:flex}
+.fbtn{flex:1;text-align:center;padding:8px 0;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);font-weight:700;font-size:12.5px;cursor:pointer}
+.fbtn.active{background:var(--surface2);color:var(--text);border-color:var(--amber)}
+.fcount{font-size:11.5px;color:var(--muted);text-align:right;margin:6px 2px 10px}
+
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px}
 .card.full-match{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
 .card-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
@@ -130,6 +136,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="scanbar">
     <button class="primary" id="c-scanbtn" onclick="scanCrypto()">Kripto taramasını başlat</button>
     <button class="ghost" id="c-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
+    <button class="ghost" id="c-clearbtn" onclick="clearResults('c')" style="display:none">Temizle</button>
     <button class="ghost" id="c-exportbtn" onclick="exportKlines()" style="display:none">Veriyi dışa aktar (JSON)</button>
   </div>
 
@@ -142,6 +149,13 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
     <div class="stat"><b id="c-s-signal">0</b><span>sinyalli</span></div>
     <div class="stat"><b id="c-s-full">0</b><span>tam eşleşme</span></div>
   </div>
+
+  <div class="filterbar" id="c-filter">
+    <div class="fbtn" data-min="1" onclick="setFilter('c',1)">Tümü</div>
+    <div class="fbtn active" data-min="2" onclick="setFilter('c',2)">2+ sinyal</div>
+    <div class="fbtn" data-min="3" onclick="setFilter('c',3)">Tam eşleşme</div>
+  </div>
+  <div class="fcount" id="c-fcount"></div>
 
   <div id="c-results"></div>
   <div class="empty" id="c-empty">Kriterlere uyan sembol bulunamadı. Eşikleri gevşetmeyi dene (ör. düşüş %60, hacim çarpanı 2).</div>
@@ -177,6 +191,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="scanbar">
     <button class="primary" id="sc-scanbtn" onclick="scanScalping()">Scalping taramasını başlat</button>
     <button class="ghost" id="sc-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
+    <button class="ghost" id="sc-clearbtn" onclick="clearResults('sc')" style="display:none">Temizle</button>
   </div>
 
   <div class="progress" id="sc-prog"><i id="sc-progbar"></i></div>
@@ -188,6 +203,13 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
     <div class="stat"><b id="sc-s-signal">0</b><span>sinyalli</span></div>
     <div class="stat"><b id="sc-s-a">0</b><span>A notu</span></div>
   </div>
+
+  <div class="filterbar" id="sc-filter">
+    <div class="fbtn" data-min="0" onclick="setFilter('sc',0)">Tümü</div>
+    <div class="fbtn active" data-min="6" onclick="setFilter('sc',6)">B ve üzeri</div>
+    <div class="fbtn" data-min="8" onclick="setFilter('sc',8)">Sadece A</div>
+  </div>
+  <div class="fcount" id="sc-fcount"></div>
 
   <div id="sc-results"></div>
   <div class="empty" id="sc-empty">Scalping kriterine uyan coin yok. Hacim çarpanını veya skor eşiğini düşürmeyi dene.</div>
@@ -257,6 +279,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="scanbar">
     <button class="primary" id="s-scanbtn" onclick="scanStocks()">Hisse taramasını başlat</button>
     <button class="ghost" id="s-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
+    <button class="ghost" id="s-clearbtn" onclick="clearResults('s')" style="display:none">Temizle</button>
   </div>
 
   <div class="progress" id="s-prog"><i id="s-progbar"></i></div>
@@ -269,6 +292,13 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
     <div class="stat"><b id="s-s-full">0</b><span>tam eşleşme</span></div>
   </div>
 
+  <div class="filterbar" id="s-filter">
+    <div class="fbtn" data-min="1" onclick="setFilter('s',1)">Tümü</div>
+    <div class="fbtn active" data-min="2" onclick="setFilter('s',2)">2+ sinyal</div>
+    <div class="fbtn" data-min="3" onclick="setFilter('s',3)">Tam eşleşme</div>
+  </div>
+  <div class="fcount" id="s-fcount"></div>
+
   <div id="s-results"></div>
   <div class="empty" id="s-empty">Kriterlere uyan sembol bulunamadı.</div>
   <div id="s-errors"></div>
@@ -278,6 +308,32 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 /* ---------- yardımcılar ---------- */
 const $ = id => document.getElementById(id);
 let abortFlag = false;
+
+/* ---------- sonuç filtreleme / temizleme ---------- */
+const rawResults = {};             // prefix -> {list, currency}
+const filterMin = {c:2, s:2, sc:6}; // varsayılan eşikler
+const EMPTY_MSG = {};
+["c","s","sc"].forEach(p=>{ const el=$(p+"-empty"); if(el) EMPTY_MSG[p]=el.textContent; });
+
+function setFilter(prefix, min){
+  filterMin[prefix]=min;
+  document.querySelectorAll(`#${prefix}-filter .fbtn`).forEach(b=>{
+    b.classList.toggle("active", parseInt(b.dataset.min,10)===min);
+  });
+  if(prefix==="sc") applyFilterScalp(); else applyFilter(prefix);
+}
+
+function clearResults(prefix){
+  rawResults[prefix]=null;
+  $(prefix+"-results").innerHTML="";
+  $(prefix+"-summary").classList.remove("on");
+  $(prefix+"-filter").classList.remove("on");
+  $(prefix+"-fcount").textContent="";
+  $(prefix+"-empty").classList.remove("on");
+  $(prefix+"-clearbtn").style.display="none";
+  $(prefix+"-status").textContent="";
+  if(prefix==="s") $("s-errors").innerHTML="";
+}
 
 const store = {
   get(k, d){ try{ const v = localStorage.getItem("dipradar:"+k); return v===null? d : v; }catch(e){ return d; } },
@@ -469,12 +525,33 @@ function renderCard(r, currency){
 
 function renderResults(list, prefix, currency){
   list.sort((a,b)=> b.sig.score-a.sig.score || b.sig.divCount-a.sig.divCount || b.dd-a.dd);
-  const box=$(prefix+"-results");
-  box.innerHTML=list.map(r=>renderCard(r,currency)).join("");
-  $(prefix+"-empty").classList.toggle("on", list.length===0);
+  rawResults[prefix]={list, currency};
   $(prefix+"-s-signal").textContent=list.length;
   $(prefix+"-s-full").textContent=list.filter(r=>r.sig.score===3).length;
   $(prefix+"-summary").classList.add("on");
+  $(prefix+"-filter").classList.toggle("on", list.length>0);
+  $(prefix+"-clearbtn").style.display=list.length>0?"block":"none";
+  applyFilter(prefix);
+}
+
+function applyFilter(prefix){
+  const data=rawResults[prefix];
+  const box=$(prefix+"-results");
+  const emptyEl=$(prefix+"-empty");
+  const countEl=$(prefix+"-fcount");
+  if(!data || !data.list.length){
+    box.innerHTML="";
+    emptyEl.textContent=EMPTY_MSG[prefix];
+    emptyEl.classList.toggle("on", !!data);
+    countEl.textContent="";
+    return;
+  }
+  const min=filterMin[prefix];
+  const filtered=data.list.filter(r=>r.sig.score>=min);
+  box.innerHTML=filtered.map(r=>renderCard(r,data.currency)).join("");
+  emptyEl.classList.toggle("on", filtered.length===0);
+  emptyEl.textContent = filtered.length===0 ? 'Bu filtrede sonuç yok. "Tümü"nü dene.' : EMPTY_MSG[prefix];
+  countEl.textContent = `${filtered.length} / ${data.list.length} gösteriliyor`;
 }
 
 /* ---------- KRİPTO (Binance) ---------- */
@@ -585,7 +662,8 @@ async function scanCrypto(){
   btn.disabled=true; stop.style.display="block";
   $("c-prog").classList.add("on"); $("c-progbar").style.width="0%";
   $("c-results").innerHTML=""; $("c-empty").classList.remove("on");
-  $("c-summary").classList.remove("on");
+  $("c-summary").classList.remove("on"); $("c-filter").classList.remove("on");
+  $("c-clearbtn").style.display="none"; rawResults.c=null;
   const status=$("c-status");
   const results=[];
   let gateCount=0, done=0;
@@ -677,6 +755,7 @@ async function scanStocks(){
   $("s-prog").classList.add("on"); $("s-progbar").style.width="0%";
   $("s-results").innerHTML=""; $("s-errors").innerHTML="";
   $("s-empty").classList.remove("on"); $("s-summary").classList.remove("on");
+  $("s-filter").classList.remove("on"); $("s-clearbtn").style.display="none"; rawResults.s=null;
   const status=$("s-status");
   const results=[], errors=[];
   let gateCount=0, done=0;
@@ -824,6 +903,26 @@ function renderScalpCard(r){
   return html;
 }
 
+function applyFilterScalp(){
+  const data=rawResults.sc;
+  const box=$("sc-results");
+  const emptyEl=$("sc-empty");
+  const countEl=$("sc-fcount");
+  if(!data || !data.list.length){
+    box.innerHTML="";
+    emptyEl.textContent=EMPTY_MSG.sc;
+    emptyEl.classList.toggle("on", !!data);
+    countEl.textContent="";
+    return;
+  }
+  const min=filterMin.sc;
+  const filtered=data.list.filter(r=>r.score>=min);
+  box.innerHTML=filtered.map(renderScalpCard).join("");
+  emptyEl.classList.toggle("on", filtered.length===0);
+  emptyEl.textContent = filtered.length===0 ? 'Bu filtrede sonuç yok. "Tümü"nü dene.' : EMPTY_MSG.sc;
+  countEl.textContent = `${filtered.length} / ${data.list.length} gösteriliyor`;
+}
+
 async function scanScalping(){
   abortFlag=false;
   const p=scalpParams();
@@ -832,6 +931,7 @@ async function scanScalping(){
   $("sc-prog").classList.add("on"); $("sc-progbar").style.width="0%";
   $("sc-results").innerHTML=""; $("sc-empty").classList.remove("on");
   $("sc-summary").classList.remove("on");
+  $("sc-filter").classList.remove("on"); $("sc-clearbtn").style.display="none"; rawResults.sc=null;
   const status=$("sc-status");
   const results=[]; let cvdPass=0, done=0;
 
@@ -898,11 +998,13 @@ async function scanScalping(){
     });
 
     results.sort((a,b)=>b.score-a.score);
-    $("sc-results").innerHTML=results.map(renderScalpCard).join("");
-    $("sc-empty").classList.toggle("on", results.length===0);
+    rawResults.sc={list:results};
     $("sc-s-signal").textContent=results.length;
     $("sc-s-a").textContent=results.filter(r=>r.grade==="A").length;
     $("sc-summary").classList.add("on");
+    $("sc-filter").classList.toggle("on", results.length>0);
+    $("sc-clearbtn").style.display=results.length>0?"block":"none";
+    applyFilterScalp();
     status.textContent=abortFlag?"Tarama durduruldu.":"Scalping taraması tamamlandı.";
   }catch(e){
     status.innerHTML=`<span class="err">Hata: ${e.message}. Binance futures API'sine erişilemedi (hız sınırı veya bölge kısıtı olabilir).</span>`;
