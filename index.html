@@ -435,7 +435,7 @@ const filterMin = {c:2, s:2, sc:6, sh:3}; // varsayılan eşikler
 const PAGE_SIZE = 25;
 const shownCount = {c:PAGE_SIZE, s:PAGE_SIZE, sc:PAGE_SIZE, sh:PAGE_SIZE};
 const EMPTY_MSG = {};
-["c","s","sc","sh"].forEach(p=>{ const el=$(p+"-empty"); if(el) EMPTY_MSG[p]=el.textContent; });
+["c","s","sc","sh","lc"].forEach(p=>{ const el=$(p+"-empty"); if(el) EMPTY_MSG[p]=el.textContent; });
 
 /* son taramayı localStorage'a yaz — sayfa yenilenince kaybolmasın */
 function persistResults(prefix){
@@ -904,6 +904,7 @@ async function scanSocial(){
       .sort((a,b)=> asc ? a[sortMetric]-b[sortMetric] : b[sortMetric]-a[sortMetric])
       .slice(0, limit);
     if(!sorted.length){
+      $("lc-empty").textContent="Bu sıralama kriterinde veri bulunamadı. Başka bir sıralama dene.";
       $("lc-empty").classList.add("on");
       $("lc-status").textContent="Sonuç yok.";
     } else {
@@ -1406,7 +1407,7 @@ async function scanScalping(){
       .slice(0,p.topN)
       .map(t=>({symbol:t.symbol, price:parseFloat(t.lastPrice)}));
 
-    const oiPeriod = (p.tf==="1h")?"1h":(p.tf==="5m"?"5m":"15m");
+    const oiPeriod = OI_PERIOD_MAP[p.tf] || "15m"; // Coin analiz'deki merkezi eşleme — evrenin ileride genişlemesi durumunda kapsam dışı bir zaman dilimi sessizce yanlış OI periyoduna düşmesin
 
     await pool(universe, 4, async (u)=>{
       try{
@@ -1770,7 +1771,10 @@ async function analyzeOne(base, tf, sectorCache){
 
     /* futures: CVD proxy + OI + funding */
     const fut=await fetchKlinesTB(FUT, symbol, tf, 40);
-    const bp=fut?buyerPressure(fut,3):(spot?buyerPressure(spot,3):{net:0,positive:false});
+    /* buyerPressure kendi "yetersiz veri" varsayılanını (net/positive/negative) zaten
+       doğru şekilde döndürüyor — burada elle kopyalanmış bir fallback nesnesi tutmak
+       (scalping'in CVD kapısında olduğu gibi) zamanla şekli tutarsızlaşabilir */
+    const bp=buyerPressure(fut||spot, 3);
     const cvdPos=bp.positive;
     const oiPeriod=OI_PERIOD_MAP[tf] || "15m";
     const oi=fut?await fetchOIchange(symbol, oiPeriod):null;
@@ -2021,6 +2025,7 @@ function clearList(){
         $("sc-summary").classList.add("on");
         $("sc-filter").classList.toggle("on", true);
         $("sc-clearbtn").style.display="block";
+        setScalpDir(saved.list[0].dir==="short" ? "short" : "long"); // toggle/buton metnini kaydedilen sonuçla senkronla
         applyFilterScalp();
         $("sc-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
       }
