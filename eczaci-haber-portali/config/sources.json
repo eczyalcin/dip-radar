@@ -4,66 +4,110 @@
     "name": "TİTCK - Duyurular",
     "homepage": "https://www.titck.gov.tr/duyuru",
     "category": "resmi-kurumlar",
-    "type": "auto",
-    "verified": false,
-    "notes": "Türkiye İlaç ve Tıbbi Cihaz Kurumu genel duyuruları. TİTCK'nın /rss adresinde besleme linkleri olduğu tespit edildi ancak tam adres bu ortamdan doğrulanamadı; ilk otomatik taramada keşif denenecek."
+    "type": "html",
+    "listUrl": "https://www.titck.gov.tr/duyuru",
+    "selectors": {
+      "item": ".haber-container",
+      "link": "a.haber-link",
+      "title": "h1",
+      "date": "span.tarih"
+    },
+    "verified": true,
+    "notes": "22.07.2026 tanılamasında doğrulandı: gerçek sayfa HTML'i indirilip seçiciler yerel olarak test edildi."
   },
   {
     "id": "titck-geri-cekme",
     "name": "TİTCK - Geri Çekme / Satış Yasağı",
     "homepage": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme",
     "category": "geri-cekme",
-    "type": "auto",
-    "verified": false,
-    "notes": "İlaç geri çekme ve satış blokajı duyuruları. Eczacılar için operasyonel açıdan en kritik kaynaklardan biri."
+    "type": "html",
+    "listUrl": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme",
+    "selectors": {
+      "item": ".haber-container",
+      "link": "a.haber-link",
+      "title": "h1",
+      "date": "span.tarih"
+    },
+    "verified": true,
+    "notes": "22.07.2026 tanılamasında doğrulandı (titck-duyuru ile aynı site şablonu, geriCekme filtresiyle). Ayrıca sayfada 'https://www.titck.gov.tr/recallAnnouncementFeeds' adresinde resmi bir RSS bağlantısı bulundu ancak içeriği bu ortamdan doğrulanamadı; ileride denenebilir."
   },
   {
     "id": "saglik-bakanligi",
-    "name": "T.C. Sağlık Bakanlığı",
-    "homepage": "https://www.saglik.gov.tr/",
+    "name": "T.C. Sağlık Bakanlığı - Basın Duyuruları",
+    "homepage": "https://www.saglik.gov.tr/TR-3197/basin-duyurulari.html",
     "category": "resmi-kurumlar",
-    "type": "auto",
-    "verified": false,
-    "notes": "Ana sayfadan RSS keşfi denenecek. Basın Odası / duyurular sayfasının kesin adresi doğrulanınca güncellenmeli.",
-    "diagnoseUrls": [
-      "https://www.saglik.gov.tr/TR-3197/basin-duyurulari.html",
-      "https://www.saglik.gov.tr/TR-84146/haberler.html"
-    ]
+    "type": "html",
+    "listUrl": "https://www.saglik.gov.tr/TR-3197/basin-duyurulari.html",
+    "selectors": {
+      "item": "table.haber_duyuru_listele_item tr",
+      "link": "a",
+      "title": "a"
+    },
+    "verified": true,
+    "notes": "22.07.2026 tanılamasında doğrulandı. Tarih hücreleri (gün/ay kısaltması/yıl ayrı span) ayrıştırılmıyor; sıralama taranma zamanına göre yapılır."
   },
   {
     "id": "teb",
     "name": "Türk Eczacıları Birliği",
     "homepage": "https://www.teb.org.tr/news",
     "category": "teb-odalar",
-    "type": "auto",
+    "type": "html",
+    "listUrl": "https://www.teb.org.tr/news",
+    "selectors": {
+      "item": ".haberListe_M .whiteContent",
+      "link": ".col_R-17 a",
+      "title": "h1"
+    },
     "verified": true,
-    "notes": "Haberler sayfası doğrulandı (teb.org.tr/news). RSS keşfi denenecek; bulunamazsa HTML seçicileri elle eklenmeli."
+    "notes": "22.07.2026 tanılamasında doğrulandı. Başlık, sitedeki biçimle aynı şekilde '21.07.2026 |Başlık' formatında gelir (tarih başlığın içinde)."
   },
   {
     "id": "duzce-eczaci-odasi",
     "name": "Düzce Eczacı Odası",
     "homepage": "https://www.duzceeo.org/",
     "category": "duzce",
-    "type": "auto",
+    "type": "html",
+    "listUrl": "https://www.duzceeo.org/",
+    "selectors": {
+      "item": ".news article",
+      "link": "a",
+      "title": "a",
+      "titleAttr": "title",
+      "date": "h4 span"
+    },
     "verified": true,
-    "notes": "Ana sayfa doğrulandı (duzceeo.org). Duyurular alt sayfasının kesin adresi ve HTML yapısı henüz doğrulanmadı."
+    "notes": "22.07.2026 tanılamasında doğrulandı."
   },
   {
     "id": "ankara-eczaci-odasi",
     "name": "Ankara Eczacı Odası",
     "homepage": "https://www.aeo.org.tr/",
     "category": "teb-odalar",
-    "type": "auto",
+    "type": "html",
+    "listUrl": "https://www.aeo.org.tr/",
+    "selectors": {
+      "item": "#sliderAreaAnnouncementsList li",
+      "link": "a",
+      "title": "a",
+      "titleAttr": "title"
+    },
     "verified": true,
-    "notes": "Ana sayfa doğrulandı (aeo.org.tr). Büyük bir bölge odası olarak çekirdek kaynak setine eklendi."
+    "notes": "22.07.2026 tanılamasında doğrulandı. Tarih alanı 'Bugün' gibi göreli metinler içerdiğinden ayrıştırılmıyor; sıralama taranma zamanına göre yapılır."
   },
   {
     "id": "eczacinin-sesi",
     "name": "Eczacının Sesi",
     "homepage": "https://www.eczacininsesi.com",
     "category": "sektor",
-    "type": "auto",
+    "type": "html",
+    "listUrl": "https://www.eczacininsesi.com",
+    "selectors": {
+      "item": ".carousel-inner .item",
+      "link": "a",
+      "title": "img",
+      "titleAttr": "alt"
+    },
     "verified": true,
-    "notes": "Eczacılık sektörü haber sitesi. RSS keşfi denenecek."
+    "notes": "22.07.2026 tanılamasında doğrulandı. Ana sayfadaki öne çıkan haberler slider'ından (14 öğe) besleniyor."
   }
 ]

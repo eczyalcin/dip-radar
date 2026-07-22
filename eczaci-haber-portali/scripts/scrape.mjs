@@ -143,14 +143,23 @@ async function scrapeHtmlList(source) {
   $(selectors.item).each((_, el) => {
     const root = $(el);
     const linkEl = selectors.link ? root.find(selectors.link).first() : root;
-    const titleEl = selectors.title ? root.find(selectors.title).first() : linkEl;
     const href = linkEl.attr('href');
-    const title = titleEl.text().trim();
-    if (!href || !title) return;
+    if (!href) return;
 
-    const dateText = selectors.date ? root.find(selectors.date).first().text().trim() : null;
+    const titleEl = selectors.title ? root.find(selectors.title).first() : linkEl;
+    const title = (selectors.titleAttr ? titleEl.attr(selectors.titleAttr) : titleEl.text()) || '';
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+
+    let dateText = null;
+    if (selectors.date) {
+      const dateEl = root.find(selectors.date).first();
+      dateText = (selectors.dateAttr ? dateEl.attr(selectors.dateAttr) : dateEl.text()) || '';
+      dateText = dateText.trim() || null;
+    }
+
     items.push({
-      title,
+      title: trimmedTitle,
       link: new URL(href, listUrl).toString(),
       publishedAt: dateText ? parseTurkishDate(dateText) : null,
     });
