@@ -1,0 +1,706 @@
+[
+  {
+    "id": "titck-duyuru",
+    "name": "TİTCK - Duyurular",
+    "homepage": "https://www.titck.gov.tr/duyuru",
+    "httpStatus": 200,
+    "contentLength": 68902,
+    "feedLinkTags": [],
+    "interestingLinks": [
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme",
+        "text": "Güvenlilik Uyarıları & Geri Çekmeler"
+      },
+      {
+        "href": "https://www.titck.gov.tr/haber",
+        "text": "Haberler"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru",
+        "text": "Duyurular"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru/ilac-firmalarinin-dikkatine-22072026114832",
+        "text": "22.07.2026  \n                                        İLAÇ FİRMALARININ DİKKATİNE"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru/ilac-firmalarinin-dikkatine-22072026113934",
+        "text": "22.07.2026  \n                                        İLAÇ FİRMALARININ DİKKATİNE"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru/ilac-firmalarinin-dikkatine-21072026210725",
+        "text": "21.07.2026  \n                                        İLAÇ FİRMALARININ DİKKATİNE"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru/yardimci-eczaci-yerlestirmesi-ve-calistirilmasina-dair-usul-ve-esaslar-da-degisiklik-21072026205314",
+        "text": "21.07.2026  \n                                        Yardımcı Eczacı Yerleştirme"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru/eczaci-yerlestirme-sistemi-basvurusunda-bulunan-eczacilarin-dikkatine-17072026165708",
+        "text": "17.07.2026  \n                                        ECZACI YERLEŞTİRME SİSTEMİ "
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?page=2",
+        "text": "2"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?page=3",
+        "text": "3"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?page=4",
+        "text": "4"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?page=5",
+        "text": "5"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?page=6",
+        "text": "6"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?page=7",
+        "text": "7"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?page=8",
+        "text": "8"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?page=567",
+        "text": "567"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?page=568",
+        "text": "568"
+      },
+      {
+        "href": "https://titck.gov.tr/storage/Archive/2026/contentFile/GMP%20Sertifikas%C4%B1%20Verilen%20Firma%20Duyuru%20Listesi%2003.06.2026%20(1)_75ec9ce3-21bb-425b-a018-0761a19b492e%20(1)_0c49f364-d57c-4f1b-83ee-ca8c1b59d877.xlsx",
+        "text": "Gmp Sertifikasi Verilen Kozmetik Üretim Tesisleri"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru#collapse-2-mevzuat-duyurusu",
+        "text": "Mevzuat Duyurusu"
+      }
+    ],
+    "error": null
+  },
+  {
+    "id": "titck-geri-cekme",
+    "name": "TİTCK - Geri Çekme / Satış Yasağı",
+    "homepage": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme",
+    "httpStatus": 200,
+    "contentLength": 69542,
+    "feedLinkTags": [],
+    "interestingLinks": [
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme",
+        "text": "Güvenlilik Uyarıları & Geri Çekmeler"
+      },
+      {
+        "href": "https://www.titck.gov.tr/haber",
+        "text": "Haberler"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru",
+        "text": "Duyurular"
+      },
+      {
+        "href": "https://www.titck.gov.tr/recallAnnouncementFeeds",
+        "text": "Satış Blokajı ve İlaç Geri Çekme RSS bağlantısı için tıklayınız"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru/ilac-geri-cekme-15062026111007",
+        "text": "15.06.2026  \n                                        İlaç Geri Çekme\n           "
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru/kamuoyunun-dikkatine-10062026115530",
+        "text": "10.06.2026  \n                                        Kamuoyunun Dikkatine\n      "
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru/kamuoyunun-dikkatine-02062026150439",
+        "text": "02.06.2026  \n                                        Kamuoyunun Dikkatine\n      "
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru/kamuoyunun-dikkatine-01062026140509",
+        "text": "01.06.2026  \n                                        Kamuoyunun Dikkatine\n      "
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru/kamuoyunun-dikkatine-14052026113106",
+        "text": "14.05.2026  \n                                        Kamuoyunun Dikkatine\n      "
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme&page=2",
+        "text": "2"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme&page=3",
+        "text": "3"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme&page=4",
+        "text": "4"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme&page=5",
+        "text": "5"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme&page=6",
+        "text": "6"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme&page=7",
+        "text": "7"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme&page=8",
+        "text": "8"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme&page=66",
+        "text": "66"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme&page=67",
+        "text": "67"
+      },
+      {
+        "href": "https://titck.gov.tr/storage/Archive/2026/contentFile/GMP%20Sertifikas%C4%B1%20Verilen%20Firma%20Duyuru%20Listesi%2003.06.2026%20(1)_75ec9ce3-21bb-425b-a018-0761a19b492e%20(1)_0c49f364-d57c-4f1b-83ee-ca8c1b59d877.xlsx",
+        "text": "Gmp Sertifikasi Verilen Kozmetik Üretim Tesisleri"
+      },
+      {
+        "href": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme#collapse-2-mevzuat-duyurusu",
+        "text": "Mevzuat Duyurusu"
+      }
+    ],
+    "error": null
+  },
+  {
+    "id": "saglik-bakanligi",
+    "name": "T.C. Sağlık Bakanlığı - Basın Duyuruları",
+    "homepage": "https://www.saglik.gov.tr/TR-3197/basin-duyurulari.html",
+    "httpStatus": 200,
+    "contentLength": 449523,
+    "feedLinkTags": [],
+    "interestingLinks": [
+      {
+        "href": "https://www.saglik.gov.tr/TR-84146/haberler.html",
+        "text": "Haberler"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-3197/basin-duyurulari.html",
+        "text": "Basın Duyuruları"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-25639/haber-arsivi.html",
+        "text": "Haber Arşivi"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-116821/adolesan-taramalarina-iliskin-kamuoyu-duyurusu.html",
+        "text": "Adölesan Taramalarına İlişkin Kamuoyu Duyurusu"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-111576/dis-hekimliginde-uzmanlik-egitimi-giris-sinavi-dus-ve-tipta-yan-dal-uzmanlik-egitimi-giris-sinavi-ydus-hakkinda-kamuoyu-duyurusu.html",
+        "text": "Diş Hekimliğinde Uzmanlık Eğitimi Giriş Sınavı (DUS) ve Tıpta Yan Dal Uzmanlık E"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-111575/surekli-isci-alimi-kurasina-yonelik-iddialara-iliskin-kamuoyu-duyurusu.html",
+        "text": "Sürekli İşçi Alımı Kurasına Yönelik İddialara İlişkin Kamuoyu Duyurusu"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-111510/mhrsye-iliskin-kamuoyu-duyurusu.html",
+        "text": "MHRS'ye İlişkin Kamuoyu Duyurusu"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-106636/ambulans-helikopter-kaza-kirimina-iliskin-kamuoyu-duyurusu.html",
+        "text": "Ambulans Helikopter Kaza Kırımına İlişkin Kamuoyu Duyurusu"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-106037/bazi-basin-yayin-organlarinda-yayimlanan-e-nabizin-katara-satildigini-iddia-eden-haberler-hakkinda-kamuoyu-duyurusu.html",
+        "text": "Bazı Basın Yayın Organlarında Yayımlanan e-Nabız’ın Katar’a Satıldığını İddia Ed"
+      },
+      {
+        "href": "http://www.saglik.gov.tr/TR-3197/basin-duyurulari.html?Sayfa=2",
+        "text": "2"
+      },
+      {
+        "href": "http://www.saglik.gov.tr/TR-3197/basin-duyurulari.html?Sayfa=3",
+        "text": "3"
+      },
+      {
+        "href": "http://www.saglik.gov.tr/TR-3197/basin-duyurulari.html?Sayfa=4",
+        "text": ".."
+      },
+      {
+        "href": "http://www.saglik.gov.tr/TR-3197/basin-duyurulari.html?Sayfa=25",
+        "text": "»"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR,11693/duyurular.html",
+        "text": "Duyurular"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-99316/personel-duyurulari.html",
+        "text": "Personel Duyuruları"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-11022/yogun-bakim-ve-yenidogan-yogunbakim-unitelerinde-hizmet-sunumu-ve-isleyis-konusunda-genelge-201045-hakkkinda-duyuru.html",
+        "text": "Yoğun Bakım ve Yenidoğan Yoğunbakım Ünitelerinde Hizmet Sunumu ve işleyiş Konusu"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-11133/hava-kirliligi-onlemleri-hakkinda-duyuru.html",
+        "text": "Hava Kirliliği Önlemleri Hakkında Duyuru"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-11131/hava-kirliligi-olcumlari-hakkinda-duyuru.html",
+        "text": "Hava Kirliliği Ölçümlari Hakkında Duyuru"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-84928/haber-bultenleri.html",
+        "text": "Haber Bültenleri"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-117718/tuska-saglik-turizmi-yetki-belgesine-sahip-saglik-tesislerine-yonelik-duyuru.html",
+        "text": "Tüska Sağlık Turizmi Yetki Belgesine Sahip Sağlık Tesislerine Yönelik Duyuru"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-99316/personel-duyurulari.htm",
+        "text": "Personel Duyuruları (Tümü)"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-118499/2026-tipta-uzmanlik-egitimi-giris-sinavi-tus-1donem-ek-yerlestirme-sonuclari-hakkinda-duyuru.html",
+        "text": "2026 Tıpta Uzmanlık Eğitimi Giriş Sınavı (TUS) 1.Dönem Ek Yerleştirme Sonuçları "
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-118403/2026-tipta-yandal-uzmanlik-egitimi-giris-sinavi-ydus--1-donem-yerlestirme-sonuclari-hakkinda-duyuru.html",
+        "text": "2026 Tıpta Yandal Uzmanlık Eğitimi Giriş Sınavı (YDUS)  1. Dönem Yerleştirme Son"
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-118139/saglik-bakanligi--tasra-teskilatina-2828-sayili-kanun-kapsaminda-aile-ve-sosyal-hizmetler-bakanliginca-20052026-tarihinde-yerlestirilmesi-yapilan--adaylarin-atama-islemleri-hakkinda-duyuru.html",
+        "text": "Sağlık Bakanlığı  Taşra Teşkilatına 2828 Sayılı Kanun Kapsamında Aile Ve Sosyal "
+      },
+      {
+        "href": "https://www.saglik.gov.tr/TR-117975/2026-tipta-uzmanlik-egitimi-giris-sinavi-tus--yerlestirme-sonuclari-hakkinda-duyuru.html",
+        "text": "2026 Tıpta Uzmanlık Eğitimi Giriş Sınavı (TUS)  Yerleştirme Sonuçları Hakkında D"
+      }
+    ],
+    "error": null
+  },
+  {
+    "id": "teb",
+    "name": "Türk Eczacıları Birliği",
+    "homepage": "https://www.teb.org.tr/news",
+    "httpStatus": 200,
+    "contentLength": 68039,
+    "feedLinkTags": [],
+    "interestingLinks": [
+      {
+        "href": "https://www.teb.org.tr/news#",
+        "text": "TEB Hakkında"
+      },
+      {
+        "href": "https://www.teb.org.tr/news",
+        "text": "Tüm Haberler"
+      },
+      {
+        "href": "https://www.teb.org.tr/news_group/19/mezuniyet-haberleri",
+        "text": "Mezuniyet Haberleri"
+      },
+      {
+        "href": "https://www.teb.org.tr/news_group/22/bas%C4%B1n-a%C3%A7%C4%B1klamalar%C4%B1",
+        "text": "Basın Açıklamaları"
+      },
+      {
+        "href": "http://dergi.tebeczane.net/public_html/ARSIV-TEBHABERLER/mised/index.htm",
+        "text": "MİSED"
+      },
+      {
+        "href": "http://dergi.tebeczane.net/public_html/ARSIV-TEBHABERLER/index.htm",
+        "text": "TEB Haberler Dergisi"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11142/B%C4%B0L%C4%B0MSEL-ECZACILI%C4%9EIN-187-YIL-D%C3%96N%C3%9CM%C3%9C-KUTLU-OLSUN",
+        "text": ""
+      },
+      {
+        "href": "https://www.teb.org.tr/news_group/34/kongre-duyurular%C4%B1",
+        "text": "Kongre Duyuruları"
+      },
+      {
+        "href": "https://www.teb.org.tr/news_group/35/firma-duyurular%C4%B1",
+        "text": "Firma Duyuruları"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11235/Yard%C4%B1mc%C4%B1-Eczac%C4%B1-Yerle%C5%9Ftirmesi-ve-%C3%87al%C4%B1%C5%9Ft%C4%B1r%C4%B1lmas%C4%B1na-Dair-Usul-ve-Esaslar-Hakk%C4%B1nda-T%C4%B0TCK-Duyurusu",
+        "text": "21.07.2026 |Yardımcı Eczacı Yerleştirmesi ve Çalıştırılmasına Dair Usul ve Esasl"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11234/Ankara-%C3%9Cniversitesi-Rekt%C3%B6rl%C3%BC%C4%9F%C3%BC-Ziyareti",
+        "text": "21.07.2026 |Ankara Üniversitesi Rektörlüğü Ziyareti\n                    Ankara Ü"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11233/Haftal%C4%B1k-Sa%C4%9Fl%C4%B1k-%C4%B0la%C3%A7-ve-Eczac%C4%B1l%C4%B1k-G%C3%BCndemi",
+        "text": "20.07.2026 |Haftalık Sağlık İlaç ve Eczacılık Gündemi\n                    Haftal"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11231/TBMM-ile-Birli%C4%9Fimiz-Aras%C4%B1nda-T%C3%BCrk-Eczac%C4%B1lar%C4%B1-Birli%C4%9Fi-Taraf%C4%B1ndan-%C4%B0%C5%9Fletilen-Provizyon-Sisteminin-Kullan%C4%B1m%C4%B1na-%C4%B0li%C5%9Fkin-Protokol-%C4%B0mzaland%C4%B1",
+        "text": "17.07.2026 |TBMM ile Birliğimiz Arasında Türk Eczacıları Birliği Tarafından İşle"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11230/Eczac%C4%B1-Yerle%C5%9Ftirme-Sistemi-Ba%C5%9Fvurular%C4%B1-Hakk%C4%B1nda-T%C4%B0TCK-Duyurusu",
+        "text": "17.07.2026 |Eczacı Yerleştirme Sistemi Başvuruları Hakkında TİTCK Duyurusu\n     "
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11232/Eczanelere-Y%C3%B6nelik-%C4%B0%C5%9F-Sa%C4%9Fl%C4%B1%C4%9F%C4%B1-ve-G%C3%BCvenli%C4%9Fi-Rehberi-%C4%B0%C3%A7in-Haz%C4%B1rl%C4%B1k-Toplant%C4%B1s%C4%B1-Ger%C3%A7ekle%C5%9Ftirildi",
+        "text": "17.07.2026 |Eczanelere Yönelik İş Sağlığı ve Güvenliği Rehberi İçin Hazırlık Top"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11229/Protokol-Komisyonu-Toplant%C4%B1s%C4%B1-Hakk%C4%B1nda",
+        "text": "15.07.2026 |Protokol Komisyonu Toplantısı Hakkında\n                    Protokol "
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11228/DEMOKRAS%C4%B0M%C4%B0Z%C4%B0N-VE-M%C4%B0LL%C4%B0-B%C4%B0RL%C4%B0%C4%9E%C4%B0M%C4%B0Z%C4%B0N-SAVUNUCUSUYUZ",
+        "text": "15.07.2026 |DEMOKRASİMİZİN VE MİLLİ BİRLİĞİMİZİN SAVUNUCUSUYUZ\n                 "
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11227/Toplumsal-F%C4%B1rsat-E%C5%9Fitli%C4%9Fi-ve-Kad%C4%B1n-Haklar%C4%B1-%C3%87al%C4%B1%C5%9Fma-Grubu-Taraf%C4%B1ndan-Y%C3%BCr%C3%BCt%C3%BClen-Kad%C4%B1n-B%C3%BClteni-Haz%C4%B1rl%C4%B1k-%C3%87al%C4%B1%C5%9Fmalar%C4%B1",
+        "text": "14.07.2026 |Toplumsal Fırsat Eşitliği ve Kadın Hakları Çalışma Grubu Tarafından "
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11226/2026-Y%C4%B1l%C4%B1-Nisan-Ay%C4%B1-Sa%C4%9Fl%C4%B1k-%C3%96demeleri-Hakk%C4%B1nda",
+        "text": "14.07.2026 |2026 Yılı Nisan Ayı Sağlık Ödemeleri Hakkında\n                    20"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11225/T%C3%BCrkiye-%C4%B0la%C3%A7-ve-T%C4%B1bbi-Cihaz-Kurumu-Ba%C5%9Fkan%C4%B1-Say%C4%B1n-H%C3%BCseyin-%C3%87elik%EF%BF%BD%EF%BF%BDi-Ziyaret",
+        "text": "14.07.2026 |Türkiye İlaç ve Tıbbi Cihaz Kurumu Başkanı Sayın Hüseyin Çelik’i Ziy"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11224/Haftal%C4%B1k-Sa%C4%9Fl%C4%B1k-%C4%B0la%C3%A7-ve-Eczac%C4%B1l%C4%B1k-G%C3%BCndemi",
+        "text": "13.07.2026 |Haftalık Sağlık İlaç ve Eczacılık Gündemi\n                    Haftal"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11223/Vefat-ve-Ba%C5%9Fsa%C4%9Fl%C4%B1%C4%9F%C4%B1",
+        "text": "09.07.2026 |Vefat ve Başsağlığı\n                    Vefat ve Başsağlığı Türk Ecz"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11222/Toplumsal-F%C4%B1rsat-E%C5%9Fitli%C4%9Fi-ve-Kad%C4%B1n-Haklar%C4%B1-%C3%87al%C4%B1%C5%9Fma-Grubu-Taraf%C4%B1ndan-Y%C3%BCr%C3%BCt%C3%BClen-Kad%C4%B1n-B%C3%BClteni-Haz%C4%B1rl%C4%B1k-%C3%87al%C4%B1%C5%9Fmalar%C4%B1",
+        "text": "08.07.2026 |Toplumsal Fırsat Eşitliği ve Kadın Hakları Çalışma Grubu Tarafından "
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11221/%C5%9E%C4%B0DDETE-SESS%C4%B0Z-KALMAYACA%C4%9EIZ",
+        "text": "07.07.2026 |ŞİDDETE SESSİZ KALMAYACAĞIZ\n                    ŞİDDETE SESSİZ KALMA"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11220/01072026-31122026-D%C3%B6nemi-Oda-Aidatlar%C4%B1-Hakk%C4%B1nda",
+        "text": "07.07.2026 |01.07.2026 - 31.12.2026 Dönemi Oda Aidatları Hakkında\n              "
+      }
+    ],
+    "error": null
+  },
+  {
+    "id": "teb__extra1",
+    "name": "Türk Eczacıları Birliği (ek sayfa)",
+    "homepage": "https://www.teb.org.tr/content/28/Eczac%C4%B1-Odalar%C4%B1-Listesi",
+    "httpStatus": 200,
+    "contentLength": 60878,
+    "feedLinkTags": [],
+    "interestingLinks": [
+      {
+        "href": "https://www.teb.org.tr/news",
+        "text": "Tüm Haberler"
+      },
+      {
+        "href": "https://www.teb.org.tr/news_group/19/mezuniyet-haberleri",
+        "text": "Mezuniyet Haberleri"
+      },
+      {
+        "href": "https://www.teb.org.tr/news_group/22/bas%C4%B1n-a%C3%A7%C4%B1klamalar%C4%B1",
+        "text": "Basın Açıklamaları"
+      },
+      {
+        "href": "http://dergi.tebeczane.net/public_html/ARSIV-TEBHABERLER/mised/index.htm",
+        "text": "MİSED"
+      },
+      {
+        "href": "http://dergi.tebeczane.net/public_html/ARSIV-TEBHABERLER/index.htm",
+        "text": "TEB Haberler Dergisi"
+      },
+      {
+        "href": "https://www.teb.org.tr/news/11142/B%C4%B0L%C4%B0MSEL-ECZACILI%C4%9EIN-187-YIL-D%C3%96N%C3%9CM%C3%9C-KUTLU-OLSUN",
+        "text": ""
+      },
+      {
+        "href": "https://www.teb.org.tr/news_group/34/kongre-duyurular%C4%B1",
+        "text": "Kongre Duyuruları"
+      },
+      {
+        "href": "https://www.teb.org.tr/news_group/35/firma-duyurular%C4%B1",
+        "text": "Firma Duyuruları"
+      },
+      {
+        "href": "http://www.tokateo.org/news.php",
+        "text": ""
+      },
+      {
+        "href": "https://www.teb.org.tr/rss",
+        "text": ""
+      }
+    ],
+    "error": null
+  },
+  {
+    "id": "duzce-eczaci-odasi",
+    "name": "Düzce Eczacı Odası",
+    "homepage": "https://www.duzceeo.org/",
+    "httpStatus": 200,
+    "contentLength": 63808,
+    "feedLinkTags": [],
+    "interestingLinks": [
+      {
+        "href": "https://www.duzceeo.org/duyurular/baskandan",
+        "text": "BAŞKANDAN"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyurular/odemeler-ve-aidatlar",
+        "text": "ÖDEMELER VE AİDATLAR"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyurular/oda-duyurulari",
+        "text": "ODA DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyurular/teb-duyurulari",
+        "text": "TEB DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyurular/sgk-duyurulari",
+        "text": "SGK DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyurular/sut-duyurulari",
+        "text": "SUT DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyurular/saglik-mudurlugu-duyurulari",
+        "text": "SAĞLIK MÜDÜRLÜĞÜ DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyurular/maliye-duyurulari",
+        "text": "MALİYE DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyurular/saglik-bakanligi-duyurulari",
+        "text": "SAĞLIK BAKANLIĞI DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyurular/sirkuler-ilac-suistimal-duyurulari",
+        "text": "SİRKÜLER İLAÇ SUİSTİMAL DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyurular/tumu",
+        "text": "TÜM DUYURULAR"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/nobet-listeleri",
+        "text": "NÖBET LİSTELERİ"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/kki-uygulamayan-firmalar-hakkinda-onemli-duyuru-14474",
+        "text": "KKİ Uygulamayan Firmalar Hakkında Önemli Duyuru..."
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/baybay-night-damla-hakkinda-14853",
+        "text": "Baybay Night Damla Hakkında\n\t\t\t\t\t\t\t\t\t\t\t 01 Haziran 2026 - TEB DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/arefe-nobetleri-hakkinda-14851",
+        "text": "Arefe Nöbetleri Hakkında\n\t\t\t\t\t\t\t\t\t\t\t 25 Mayıs 2026 - ODA DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/baybay-night-damla-hakkinda-14849",
+        "text": "Baybay Night Damla Hakkında\n\t\t\t\t\t\t\t\t\t\t\t 22 Mayıs 2026 - TEB DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/14-mayis-bilimsel-eczacilik-gunu-organizasyonu-hakkinda-14848",
+        "text": "14 MAYIS BİLİMSEL ECZACILIK GÜNÜ ORGANİZASYONU HAKKINDA\n\t\t\t\t\t\t\t\t\t\t\t 27 Nisan 202"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/2026-1-sgk-sozlesme-formlari-onemli-duyuru-14847",
+        "text": "2026-1 SGK SÖZLEŞME FORMLARI ÖNEMLİ DUYURU\n\t\t\t\t\t\t\t\t\t\t\t 09 Nisan 2026 - ODA DUYUR"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/c-grubu-sirali-dagitim-sistemine-eklenen-yeni-recete-gruplari-hakkinda-14845",
+        "text": "C Grubu Sıralı Dağıtım Sistemine Eklenen Yeni Reçete Grupları Hakkında\n\t\t\t\t\t\t\t\t\t"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/sirali-dagitim-kapsamina-alinan-enzim-iceren-receteler-hakkinda-bilgilendirme-14844",
+        "text": "Sıralı Dağıtım Kapsamına Alınan Enzim içeren Reçeteler Hakkında Bilgilendirme  ."
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/vefat-ve-bassagligi-14842",
+        "text": "Vefat ve Başsağlığı\n\t\t\t\t\t\t\t\t\t\t\t 23 Mart 2026 - ODA DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/arefe-gunu-calisma-saatleri-hakkinda-14841",
+        "text": "Arefe Günü Çalışma Saatleri Hakkında \n\t\t\t\t\t\t\t\t\t\t\t 18 Mart 2026 - ODA DUYURULARI"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/ramazan-bayrami-arefe-nobetci-eczaneler-14840",
+        "text": "Ramazan Bayramı Arefe Nöbetçi Eczaneler\n\t\t\t\t\t\t\t\t\t\t\t 11 Mart 2026 - ODA DUYURULAR"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/eczane-acilis-kapanis-saatleri-hakkinda-14838",
+        "text": "Eczane Açılış Kapanış Saatleri Hakkında\n\t\t\t\t\t\t\t\t\t\t\t 12 Şubat 2026 - ODA DUYURULA"
+      },
+      {
+        "href": "https://www.duzceeo.org/duyuru/gecici-koruma-sozlesmeleri-hakkinda-14830",
+        "text": "Geçici Koruma Sözleşmeleri Hakkında\n\t\t\t\t\t\t\t\t\t\t\t 16 Ocak 2026 - ODA DUYURULARI"
+      }
+    ],
+    "error": null
+  },
+  {
+    "id": "ankara-eczaci-odasi",
+    "name": "Ankara Eczacı Odası",
+    "homepage": "https://www.aeo.org.tr/",
+    "httpStatus": 200,
+    "contentLength": 235091,
+    "feedLinkTags": [],
+    "interestingLinks": [
+      {
+        "href": "https://www.aeo.org.tr/duyurular",
+        "text": "Duyurular"
+      },
+      {
+        "href": "https://www.aeo.org.tr/yardimci-eczaci-yerlestirmesi-ve-calistirilmasina-dair-usul-ve-esaslar-hakkinda-titck-duyurusu",
+        "text": "TEB\n                                        Yardımcı Eczacı Yerleştirmesi ve Çal"
+      },
+      {
+        "href": "https://www.aeo.org.tr/eczaci-yerlestirme-sistemi-basvurulari-hakkinda-titck-duyurusu",
+        "text": "TEB\n                                        Eczacı Yerleştirme Sistemi Başvurula"
+      },
+      {
+        "href": "https://www.aeo.org.tr/ekim-2025---mart-2026-fatura-donemleri-icin-ek-fatura-duzenlenmesi-hakkinda-medula-eczane-sisteminde-yayimlanan-duyuru",
+        "text": "TEB\n                                        Ekim 2025 - Mart 2026 Fatura Dönemle"
+      },
+      {
+        "href": "https://aeo.org.tr/duyurular",
+        "text": "Duyurular"
+      }
+    ],
+    "error": null
+  },
+  {
+    "id": "eczacinin-sesi",
+    "name": "Eczacının Sesi",
+    "homepage": "https://www.eczacininsesi.com",
+    "httpStatus": 200,
+    "contentLength": 116405,
+    "feedLinkTags": [],
+    "interestingLinks": [
+      {
+        "href": "https://www.eczacininsesi.com/haber-tum.html",
+        "text": "HABERLER"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/duyuru-tum.html",
+        "text": "Duyurular"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/dunya-saglik-arenasinda-buyuyen-guc.html",
+        "text": "Dünya Sağlık Arenasında Büyüyen Güç"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/yardimci-eczacilik-duyurusu-20260722-103946.html",
+        "text": "Yardımcı Eczacılık Duyurusu"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/etkin-eczacilik-dernegi-17-yasinda.html",
+        "text": "Etkin Eczacılık Derneği 17 Yaşında!"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/milli-sporcu-dan-hekim-ilac-a-ziyaret.html",
+        "text": "Milli Sporcu’dan Hekim İlaç’a Ziyaret"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/eczaci-yerlestirme-sistemi-duyurusu-20260720-103236.html",
+        "text": "Eczacı Yerleştirme Sistemi Duyurusu"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/ii-yapay-zeka-caginda-insan-olmak.html",
+        "text": "II. Yapay Zekâ Çağında İnsan Olmak"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/sivrisineklerden-dogal-iceriklerle-nasil-korunabilirsin.html",
+        "text": "Sivrisineklerden Doğal İçeriklerle Nasıl Korunabilirsin?"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/bedeli-odenecek-ilaclar-20260716-112836.html",
+        "text": "Bedeli Ödenecek İlaçlar"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/kozmetikte-sahte-alarmi.html",
+        "text": "Kozmetikte Sahte Alarmı"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/kutlu-olsun-20260714-193100.html",
+        "text": "Kutlu Olsun"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/eczacilik-mesleginin-gelecegi.html",
+        "text": "Eczacılık Mesleğinin Geleceği"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/sgk-odemesi-20260714-123454.html",
+        "text": "SGK Ödemesi"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/sermayeni-araca-baglama.html",
+        "text": "Sermayeni Araca Bağlama"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/suya-doyan-toprak-neden-catlar.html",
+        "text": "Suya Doyan Toprak Neden Çatlar?"
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/tum-ekranlar-tek-panelde.html",
+        "text": ""
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/kene-temasinda-hayati-uyari.html",
+        "text": ""
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/omega-3-yag-asitlerinin-onemi.html",
+        "text": ""
+      },
+      {
+        "href": "https://www.eczacininsesi.com/haber/siddete-sessiz-kalmayacagiz.html",
+        "text": ""
+      },
+      {
+        "href": "https://www.eczacininsesi.com/duyuru/dicle-universitesi-rektorlugunden-20260721-091841.html",
+        "text": "Dicle Üniversitesi Rektörlüğünden\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t                    "
+      },
+      {
+        "href": "https://www.eczacininsesi.com/duyuru/teb-tarafindan-isletilen-provizyon-sistemi.html",
+        "text": "TEB Tarafından İşletilen Provizyon Sistemi\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t           "
+      },
+      {
+        "href": "https://www.eczacininsesi.com/duyuru/erciyes-universitesi-rektorlugunden-20260714-094753.html",
+        "text": "Erciyes Üniversitesi Rektörlüğünden\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t                  "
+      },
+      {
+        "href": "https://www.eczacininsesi.com/duyuru/inonu-universitesi-rektorlugunden-20260713-091336.html",
+        "text": "İnönü Üniversitesi Rektörlüğünden\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t                    "
+      },
+      {
+        "href": "https://www.eczacininsesi.com/duyuru/firat-universitesi-rektorlugunden-20260707-114115.html",
+        "text": "Fırat Üniversitesi Rektörlüğünden\n\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t                    "
+      }
+    ],
+    "error": null
+  }
+]
