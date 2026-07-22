@@ -59,7 +59,10 @@
       "title": "h1"
     },
     "verified": true,
-    "notes": "22.07.2026 tanılamasında doğrulandı. Başlık, sitedeki biçimle aynı şekilde '21.07.2026 |Başlık' formatında gelir (tarih başlığın içinde)."
+    "notes": "22.07.2026 tanılamasında doğrulandı. Başlık, sitedeki biçimle aynı şekilde '21.07.2026 |Başlık' formatında gelir (tarih başlığın içinde).",
+    "diagnoseUrls": [
+      "https://www.teb.org.tr/content/28/Eczac%C4%B1-Odalar%C4%B1-Listesi"
+    ]
   },
   {
     "id": "duzce-eczaci-odasi",
