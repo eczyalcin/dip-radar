@@ -24,7 +24,11 @@
     "category": "resmi-kurumlar",
     "type": "auto",
     "verified": false,
-    "notes": "Ana sayfadan RSS keşfi denenecek. Basın Odası / duyurular sayfasının kesin adresi doğrulanınca güncellenmeli."
+    "notes": "Ana sayfadan RSS keşfi denenecek. Basın Odası / duyurular sayfasının kesin adresi doğrulanınca güncellenmeli.",
+    "diagnoseUrls": [
+      "https://www.saglik.gov.tr/TR-3197/basin-duyurulari.html",
+      "https://www.saglik.gov.tr/TR-84146/haberler.html"
+    ]
   },
   {
     "id": "teb",
