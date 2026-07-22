@@ -1257,7 +1257,8 @@ async function fetchBistDaily(symbol){
    tablosunu besleyen, resmî olmayan ama anahtarsız bir uç nokta.
    Yalnızca güncel anlık veriyi döndürür; geçmiş veri için her sembol
    ayrıca fetchBistDaily ile çekilir (kripto taramasındaki "önce evren,
-   sonra sembol başına geçmiş" düzenine bire bir aynı). */
+   sonra sembol başına geçmiş" düzenine bire bir aynı). Tarayıcıdan
+   CORS erişimi doğrulanamadı; başarısız olursa BIST_UNIVERSE_FALLBACK'e düşülür. */
 async function fetchBistUniverse(){
   try{
     const r=await fetch("https://www.getmidas.com/wp-json/midas-api/v1/midas_table_data?sortId=&return=table");
@@ -1270,18 +1271,77 @@ async function fetchBistUniverse(){
   }catch(e){ return null; } /* ağ hatası veya CORS engeli — sessizce atla */
 }
 
-/* "Tüm BIST hisselerini otomatik tara" butonu: evreni çek, kutuyu
-   doldur (şeffaflık için), ardından normal BIST taramasını başlat. */
+/* Midas'a canlı erişim çalışmazsa (CORS doğrulanamadı, şu an bilinen durum
+   budur) kullanılan koda gömülü yedek BIST sembol evreni. Kullanıcının
+   kendi tarayıcısından alınan gerçek/güncel "Tüm Hisseler" ekran
+   görüntülerinden (piyasa değerine göre sıralı, ~40 sayfa) tek tek
+   doğrulanarak derlendi — 560+ benzersiz sembol. Zamanla eskiyebilir
+   (yeni halka arz/kod değişikliği/kod değişimi); hatalı/eski semboller
+   fetchBistDaily tarafından sessizce atlanır. */
+const BIST_UNIVERSE_FALLBACK=[...new Set([
+  "A1CAP","A1YEN","AAGYO","ACSEL","ADANA","ADBGR","ADEL","ADESE","ADGYO","ADNAC","AEFES","AFYON","AGESA",
+  "AGHOL","AGROT","AGYO","AHGAZ","AHSGY","AKBNK","AKCNS","AKENR","AKFGY","AKFIS","AKFYE","AKGRT","AKHAN",
+  "AKMGY","AKSA","AKSEN","AKSGY","AKSUE","ALARK","ALBRK","ALCAR","ALCTL","ALFAS","ALGYO","ALKIM","ALKLC",
+  "ALTNY","ALVES","ANELE","ANGEN","ANHYT","ANSGR","ARCLK","ARDYZ","ARENA","ARFYE","ARMGD","ARSAN","ARTMS",
+  "ASELS","ASGYO","ASTOR","ASUZU","ATAKP","ATATP","ATATR","ATEKS","AVGYO","AVHOL","AVOD","AVPGY","AYCES",
+  "AYDEM","AYEN","AYES","AYGAZ","AZTEK","BAGFS","BAHKM","BAKAB","BALSU","BANVT","BARMA","BASCM","BASGZ",
+  "BAYRK","BEGYO","BERA","BESTE","BETAE","BEYAZ","BFREN","BIENY","BIGCH","BIGEN","BIGTK","BIMAS","BINBN",
+  "BINHO","BIOEN","BIZIM","BJKAS","BLCYT","BLUME","BMSCH","BMSTL","BNTAS","BOBET","BORLS","BORSK","BOSSA",
+  "BRISA","BRKO","BRKVY","BRLSM","BRMEN","BRSAN","BRYAT","BSOKE","BTCIM","BUCIM","BULGS","BURCE","BURVA",
+  "BVSAN","BYDNR","CANTE","CATES","CCOLA","CELHA","CEMAS","CEMTS","CEMZY","CGCAM","CIMSA","CLEBI","CMBTN",
+  "CMENT","CONSE","CRDFA","CRFSA","CUSAN","CVKMD","CWENE","DAGI","DARDL","DCTTR","DENGE","DERHL","DERIM",
+  "DESA","DESPC","DEVA","DGATE","DGGYO","DGNMO","DITAS","DMRGD","DMSAS","DNISI","DOAS","DOCO","DOFER","DOFRB",
+  "DOGUB","DOHOL","DOKTA","DSTKF","DUNYH","DURDO","DURKN","DZGYO","EBEBK","ECILC","ECOGR","ECZYT","EDATA",
+  "EDIP","EFOR","EGEEN","EGEGY","EGEPO","EGGUB","EGPRO","EGSER","EKDMR","EKGYO","EKIM","EKOS","EKSUN","ELITE",
+  "EMKEL","EMPAE","ENDAE","ENERY","ENJSA","ENKAI","ENPRA","ENSRI","ENTRA","ERBOS","ERCB","EREGL","ESCOM",
+  "ESEN","ETILR","EUHOL","EUPWR","EYGYO","FADE","FENER","FMIZP","FONET","FORMT","FORTE","FRIGO","FRMPL",
+  "FROTO","FZLGY","GARAN","GARFA","GATEG","GEDIK","GEDZA","GENIL","GENKM","GENTS","GEREL","GESAN","GIPTA",
+  "GLBMD","GLCVY","GLRMK","GLRYH","GLYHO","GMTAS","GOLDA","GOLTS","GOODY","GOZDE","GRSEL","GRTHO","GSDDE",
+  "GSDHO","GSRAY","GUBRF","GUNDG","GWIND","GZNMI","HALKB","HATSN","HDFGS","HEDEF","HEKTS","HLGYO","HOROZ",
+  "HRKET","HTTBT","HUNER","HURGZ","ICBCT","ICUGS","IHAAS","IHLAS","IHLGM","IMASM","INDES","INFO","INGRM",
+  "INTEK","INTEM","INVEO","INVES","IPEKE","ISATR","ISBIR","ISBTR","ISCTR","ISDMR","ISFIN","ISGSY","ISGYO",
+  "ISKPL","ISKUR","ISMEN","ISSEN","ISVEA","ISYAT","IZENR","IZFAS","IZMDC","JANTS","KAPLM","KAREL","KARSN",
+  "KARTN","KATMR","KAYSE","KBORU","KCAER","KCHOL","KENT","KERVN","KERVT","KFEIN","KGYO","KIMMR","KLGYO",
+  "KLKIM","KLMSN","KLNMA","KLRHO","KLSER","KLSYN","KLYPV","KMPUR","KNFRT","KOCMT","KONKA","KONTR","KONYA",
+  "KOPOL","KORDS","KOTON","KOZAA","KOZAL","KRDMA","KRDMB","KRDMD","KRGYO","KRONT","KRPLS","KRSTL","KRVGD",
+  "KSTUR","KTSKR","KUTPO","KUVVA","KUYAS","KZBGY","KZGYO","LIDFA","LILAK","LINK","LKMNH","LMKDC","LOGO",
+  "LRSHO","LUKSK","LXGYO","LYDHO","LYDYE","MAALT","MACKO","MAGEN","MAKIM","MAKTK","MANAS","MARBL","MARKA",
+  "MARMR","MARTI","MAVI","MCARD","MEDTR","MEGMT","MEKAG","MEPET","MERCN","MERIT","MERKO","METRO","MEYSU",
+  "MGROS","MHRGY","MIATK","MNDRS","MNDTR","MOBTL","MOGAN","MOPAS","MPARK","MRGYO","MRSHL","MSGYO","MTRKS",
+  "NATEN","NETAS","NETCD","NIBAS","NTGAZ","NUGYO","NUHCM","OBAMS","OBASE","ODAS","ODINE","OFSYM","ONCSM",
+  "ONRYT","ORGE","ORMA","ORZAX","OSMEN","OSTIM","OTKAR","OTTO","OYAKC","OYLUM","OYYAT","OZATD","OZGYO",
+  "OZKGY","OZRDN","OZYSR","PAGYO","PAHOL","PAMEL","PAPIL","PARSN","PASEU","PATEK","PCILT","PEGYO","PEKGY",
+  "PENGD","PENTA","PETKM","PETUN","PGSUS","PINSU","PKART","PKENT","PNLSN","PNSUT","POLHO","POLTK","PRDGS",
+  "PRKAB","PRKME","PRZMA","PSGYO","QNBFB","QNBFK","QNBTR","QUAGR","RAYSG","REEDR","RGYAS","RNPOL","RTALB",
+  "RUBNS","RUZYE","RYGYO","RYSAS","SAFKR","SAHOL","SANEL","SANFM","SANKO","SARAE","SASA","SAYAS","SDTTR",
+  "SEGMN","SEGYO","SEKUR","SELEC","SELVA","SERNT","SISE","SKBNK","SKTAS","SKYLP","SKYMD","SMART","SMRTG",
+  "SMRVA","SNGYO","SNICA","SNPAM","SODA","SOHOE","SOKE","SOKM","SONME","SRVGY","SSAAT","SUMAS","SUNTK",
+  "SURGY","SUWEN","SVGYO","TABGD","TARKM","TATEN","TATGD","TAVHL","TBORG","TCELL","TCKRC","TDGYO","TEHOL",
+  "TEKTU","TERA","TEZOL","TGSAS","THYAO","TKFEN","TKNSA","TLMAN","TMPOL","TMSN","TNZTP","TOASO","TRALT",
+  "TRCAS","TRENJ","TRGYO","TRHOL","TRILC","TRMET","TSGYO","TSKB","TSPOR","TTKOM","TTRAK","TUCLK","TUKAS",
+  "TUPRS","TUREX","TURGG","TURSG","UCAYM","ULKER","ULUFA","ULUSE","ULUUN","UNLU","USAK","VAKBN","VAKFA",
+  "VAKFN","VAKKO","VANGD","VBTYZ","VERTU","VERUS","VESBE","VESTL","VKGYO","VRGYO","VSNMD","YAPRK","YATAS",
+  "YAYLA","YAZIC","YBTAS","YEOTK","YGGYO","YIGIT","YKBNK","YKSLN","YUNSA","YYAPI","YYLGD","ZEDUR","ZERGY",
+  "ZGYO","ZOREN","ZRGYO"
+])];
+
+/* "Tüm BIST hisselerini otomatik tara" butonu: önce canlı evreni dener,
+   olmazsa yerleşik yedek listeye düşer; sonra kutuyu doldurup
+   (şeffaflık için) normal BIST taramasını başlatır. */
 async function scanAllBist(){
   const status=$("s-status");
   status.textContent="Tüm BIST sembol listesi alınıyor…";
-  const codes=await fetchBistUniverse();
+  let codes=await fetchBistUniverse();
+  let usedFallback=false;
   if(!codes || !codes.length){
-    status.innerHTML='<span class="err">BIST sembol listesi alınamadı (ağ/CORS sorunu olabilir). Elle sembol girmeyi dene.</span>';
-    return;
+    codes=BIST_UNIVERSE_FALLBACK;
+    usedFallback=true;
   }
   $("s-list").value=codes.join(", ");
   store.set("watchlist:bist", $("s-list").value);
+  if(usedFallback){
+    status.innerHTML='<span class="err">Canlı liste alınamadı (ağ/CORS) — koda gömülü ~'+codes.length+' hisselik yedek liste kullanılıyor, tarama başlıyor…</span>';
+  }
   await scanStocks();
 }
 
