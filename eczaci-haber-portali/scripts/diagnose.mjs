@@ -49,11 +49,11 @@ function extractInterestingLinks($, baseUrl) {
   return Array.from(links.entries()).map(([href, text]) => ({ href, text }));
 }
 
-async function diagnoseSource(source) {
+async function diagnoseUrl(outId, label, url) {
   const entry = {
-    id: source.id,
-    name: source.name,
-    homepage: source.homepage,
+    id: outId,
+    name: label,
+    homepage: url,
     httpStatus: null,
     contentLength: null,
     feedLinkTags: [],
@@ -62,7 +62,7 @@ async function diagnoseSource(source) {
   };
 
   try {
-    const res = await fetchWithTimeout(source.homepage);
+    const res = await fetchWithTimeout(url);
     entry.httpStatus = res.status;
     if (!res.ok) {
       entry.error = `HTTP ${res.status}`;
@@ -71,14 +71,14 @@ async function diagnoseSource(source) {
     const html = await res.text();
     entry.contentLength = html.length;
 
-    const safeName = source.id.replace(/[^a-z0-9-]/gi, '_');
+    const safeName = outId.replace(/[^a-z0-9-]/gi, '_');
     await writeFile(path.join(OUT_DIR, `${safeName}.html`), html, 'utf-8');
 
     const $ = cheerio.load(html);
     entry.feedLinkTags = $('link[type="application/rss+xml"], link[type="application/atom+xml"]')
       .map((_, el) => ({ href: $(el).attr('href'), title: $(el).attr('title') || null }))
       .get();
-    entry.interestingLinks = extractInterestingLinks($, source.homepage).slice(0, 25);
+    entry.interestingLinks = extractInterestingLinks($, url).slice(0, 25);
   } catch (err) {
     entry.error = err && err.message ? err.message : String(err);
   }
@@ -92,11 +92,22 @@ async function main() {
 
   const results = [];
   for (const source of sources) {
-    const entry = await diagnoseSource(source);
+    const entry = await diagnoseUrl(source.id, source.name, source.homepage);
     results.push(entry);
     console.log(
       `[${entry.error ? 'ERROR' : 'OK'}] ${source.name} (${source.homepage}) - HTTP ${entry.httpStatus} - ${entry.interestingLinks.length} ilgili link${entry.error ? ' - ' + entry.error : ''}`
     );
+
+    let extraIndex = 0;
+    for (const extraUrl of source.diagnoseUrls || []) {
+      extraIndex += 1;
+      const extraId = `${source.id}__extra${extraIndex}`;
+      const extraEntry = await diagnoseUrl(extraId, `${source.name} (ek sayfa)`, extraUrl);
+      results.push(extraEntry);
+      console.log(
+        `[${extraEntry.error ? 'ERROR' : 'OK'}]   ↳ ${extraUrl} - HTTP ${extraEntry.httpStatus} - ${extraEntry.interestingLinks.length} ilgili link${extraEntry.error ? ' - ' + extraEntry.error : ''}`
+      );
+    }
   }
 
   await writeFile(path.join(OUT_DIR, 'summary.json'), JSON.stringify(results, null, 2) + '\n', 'utf-8');
