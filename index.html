@@ -371,7 +371,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
     Hisse tarafı <b>FMP API anahtarı</b> gerektirir (financialmodelingprep.com — ücretsiz plan günde 250 istek). Ücretsiz planda yalnızca <b>ABD hisseleri, günlük veriyle</b> taranır: günlük RSI uyumsuzluğu + kapitülasyon + hacimli dönüş mumu. BIST ve intraday (1s/4s) ücretsiz planda desteklenmez. ATH, FMP geçmişiyle sınırlıdır (~5 yıl).
   </div>
   <div class="warnbox" id="s-warnbox-bist" style="display:none">
-    <b>BIST (İş Yatırım) — deneysel:</b> Anahtar gerekmez, İş Yatırım'ın kendi web sitesini besleyen resmî olmayan bir veri uç noktası kullanılır. "Tüm BIST hisselerini otomatik tara" butonu, sembol listesini yine resmî olmayan bir Midas uç noktasından otomatik çeker. İkisinin de tarayıcıdan doğrudan erişimi (CORS) doğrulanmadı — çalışmazsa bana bildir. Açılış fiyatı verilmediği için önceki günün kapanışına yaklaşık olarak düşülür. Geçmiş, son ~2 yılla sınırlıdır. Semboller sonek istemez (ör. THYAO, ASELS). Yüzlerce hisseyi tek seferde taramak birkaç dakika sürebilir.
+    <b>BIST (Yahoo Finance) — deneysel:</b> Anahtar gerekmez. Fiyat verisi Yahoo Finance'in ".IS" (Istanbul) sonekli uç noktasından çekilir — İş Yatırım'ın kendi sitesi tarayıcıdan CORS ile engellendiği doğrulandığı için buna geçildi; Yahoo'nun CORS desteği de tam doğrulanmadı, çalışmazsa bildir. "Tüm BIST hisselerini otomatik tara" butonu, önce Midas'ın canlı sembol listesini dener (genelde CORS ile engellenir), olmazsa koda gömülü ~560 sembollük yedek listeye düşer. Geçmiş, son ~2 yılla sınırlıdır. Semboller sonek istemez (ör. THYAO, ASELS). Yüzlerce hisseyi tek seferde taramak birkaç dakika sürebilir.
   </div>
   <div class="warnbox" id="s-warnbox-de" style="display:none">
     <b>Almanya (Stooq) — deneysel:</b> Stooq artık indirme için ücretsiz ama tek seferlik, captcha ile alınan bir <b>API anahtarı</b> istiyor — aşağıdaki alana gir. Tarayıcıdan doğrudan erişimin (CORS) çalışıp çalışmayacağı doğrulanmadı — çalışmazsa bana bildir. Sembole otomatik ".DE" soneki eklenir (ör. SAP → SAP.DE); istersen kendin de ekleyebilirsin. "Tüm Almanya hisselerini otomatik tara" butonu, DAX+MDAX+SDAX+TecDAX'ten koda gömülü yaklaşık bir sembol listesi kullanır (ücretsiz canlı bir "tüm XETRA sembolleri" kaynağı yok); endeks değişimleriyle zamanla eskiyebilir, hatalı/eski semboller sessizce atlanır.
@@ -1217,36 +1217,30 @@ function setStockMarket(m){
   $("s-scanbtn").textContent = STOCK_SCAN_LABEL[m];
 }
 
-function isyDateStr(d){
-  const dd=String(d.getDate()).padStart(2,"0");
-  const mm=String(d.getMonth()+1).padStart(2,"0");
-  return `${dd}-${mm}-${d.getFullYear()}`;
-}
-
-/* BIST günlük veri — İş Yatırım'ın kendi web sitesini besleyen, resmî
-   olmayan ama anahtar gerektirmeyen bir uç nokta. Açılış fiyatı verilmez;
-   önceki günün kapanışına yaklaşık olarak düşülür. */
+/* BIST günlük veri — Yahoo Finance'in ".IS" (Istanbul) sonekli anahtarsız
+   chart uç noktası. İş Yatırım'ın kendi sitesi tarayıcıdan CORS ile
+   engellendiği doğrulandığı için (kullanıcı testinde) buna geçildi.
+   Yahoo'nun tarayıcı-içi fetch() ile CORS desteği de tam doğrulanmadı —
+   çalışmazsa bildir. */
 async function fetchBistDaily(symbol){
   try{
-    const end=new Date();
-    const start=new Date(); start.setFullYear(start.getFullYear()-2);
-    const url=`https://www.isyatirim.com.tr/_layouts/15/Isyatirim.Website/Common/Data.aspx/HisseTekil?hisse=${encodeURIComponent(symbol)}&startdate=${isyDateStr(start)}&enddate=${isyDateStr(end)}`;
+    const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}.IS?range=2y&interval=1d`;
     const r=await fetch(url);
     if(!r.ok) return null;
     const j=await r.json();
-    const rows=j && Array.isArray(j.value) ? j.value : null;
-    if(!rows || !rows.length) return null;
+    const result=j && j.chart && Array.isArray(j.chart.result) ? j.chart.result[0] : null;
+    const quote=result && result.indicators && Array.isArray(result.indicators.quote) ? result.indicators.quote[0] : null;
+    if(!result || !quote || !Array.isArray(result.timestamp)) return null;
     const o=[],h=[],l=[],c=[],v=[];
-    let prevClose=null;
-    for(const row of rows){
-      const close=+row.HGDG_KAPANIS, hi=+row.HGDG_MAX, lo=+row.HGDG_MIN, vol=+row.HGDG_HACIM||0;
-      if(!isFinite(close) || close<=0) continue;
-      o.push(prevClose!=null ? prevClose : close);
-      h.push(isFinite(hi) && hi>0 ? hi : close);
-      l.push(isFinite(lo) && lo>0 ? lo : close);
+    for(let i=0;i<result.timestamp.length;i++){
+      const close=quote.close[i];
+      if(close==null || !isFinite(close) || close<=0) continue;
+      const open=quote.open[i], hi=quote.high[i], lo=quote.low[i], vol=quote.volume[i];
+      o.push(open!=null && isFinite(open) ? open : close);
+      h.push(hi!=null && isFinite(hi) && hi>0 ? hi : close);
+      l.push(lo!=null && isFinite(lo) && lo>0 ? lo : close);
       c.push(close);
-      v.push(isFinite(vol) ? vol : 0);
-      prevClose=close;
+      v.push(vol!=null && isFinite(vol) ? vol : 0);
     }
     if(c.length<40) return null;
     return {o,h,l,c,v};
