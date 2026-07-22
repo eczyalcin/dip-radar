@@ -18,6 +18,7 @@ const DATA_PATH = path.join(BASE_DIR, 'data', 'news.json');
 const MAX_ITEMS_PER_SOURCE = 40;
 const MAX_TOTAL_ITEMS = 500;
 const FETCH_TIMEOUT_MS = 15000;
+const DEDUPE_WINDOW_MS = 5 * 24 * 60 * 60 * 1000; // 5 gün
 const USER_AGENT =
   'Mozilla/5.0 (compatible; EczaciHaberMerkeziBot/1.0; +https://github.com/eczyalcin/dip-radar)';
 const FEED_DISCOVERY_PATHS = ['/feed', '/feed/', '/rss', '/rss/', '/rss.xml', '/feed.xml', '/atom.xml'];
@@ -50,6 +51,74 @@ const rssParser = new Parser({
 
 function hashId(link) {
   return crypto.createHash('sha1').update(link).digest('hex').slice(0, 16);
+}
+
+function normalizeTitle(title) {
+  return title
+    .replace(/^\d{1,2}[./]\d{1,2}[./]\d{4}\s*\|?\s*/, '') // TEB tarzı baştaki tarih öneki
+    .toLocaleLowerCase('tr')
+    .replace(/[.,;:!?'"()[\]{}\-–—’‘“”]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function itemTimeMs(item) {
+  return Date.parse(item.publishedAt || item.fetchedAt || 0);
+}
+
+// Aynı haberin farklı kaynaklarca (ör. TEB duyurusunu bir eczacı odasının
+// aynen yeniden yayımlaması) tekrar tekrar gösterilmesini önler: normalize
+// edilmiş başlığı aynı VE tarihleri birbirine yakın (DEDUPE_WINDOW_MS)
+// öğeleri tek bir karta indirger. Sadece başlık eşleşmesi yeterli
+// sayılmaz; "Vefat ve Başsağlığı" gibi genel başlıklar farklı zamanlarda
+// gerçekten farklı duyurular olabilir.
+function dedupeItems(items, sourcePriority) {
+  const byTitle = new Map();
+  for (const it of items) {
+    const key = normalizeTitle(it.title);
+    if (!byTitle.has(key)) byTitle.set(key, []);
+    byTitle.get(key).push(it);
+  }
+
+  const result = [];
+  for (const group of byTitle.values()) {
+    if (group.length === 1) {
+      result.push(group[0]);
+      continue;
+    }
+
+    group.sort((a, b) => itemTimeMs(a) - itemTimeMs(b));
+    let cluster = [group[0]];
+
+    const flushCluster = () => {
+      if (cluster.length === 1) {
+        result.push(cluster[0]);
+        return;
+      }
+      cluster.sort((a, b) => (sourcePriority.get(a.source) ?? 99) - (sourcePriority.get(b.source) ?? 99));
+      const canonical = { ...cluster[0] };
+      const seenNames = new Set([canonical.sourceName]);
+      canonical.alsoFrom = [];
+      for (const other of cluster.slice(1)) {
+        if (seenNames.has(other.sourceName)) continue;
+        seenNames.add(other.sourceName);
+        canonical.alsoFrom.push({ sourceName: other.sourceName, link: other.link });
+      }
+      result.push(canonical);
+    };
+
+    for (let i = 1; i < group.length; i += 1) {
+      if (itemTimeMs(group[i]) - itemTimeMs(group[i - 1]) <= DEDUPE_WINDOW_MS) {
+        cluster.push(group[i]);
+      } else {
+        flushCluster();
+        cluster = [group[i]];
+      }
+    }
+    flushCluster();
+  }
+
+  return result;
 }
 
 async function fetchWithTimeout(url, opts = {}) {
@@ -252,10 +321,11 @@ async function main() {
   }
 
   const merged = new Map();
-  for (const it of previous.items || []) merged.set(it.id, it);
+  for (const it of previous.items || []) merged.set(it.id, { ...it, alsoFrom: undefined });
   for (const it of freshItems) merged.set(it.id, it);
 
-  let allItems = Array.from(merged.values());
+  const sourcePriority = new Map(sources.map((s) => [s.id, s.priority ?? 99]));
+  let allItems = dedupeItems(Array.from(merged.values()), sourcePriority);
   allItems.sort((a, b) => {
     const da = Date.parse(a.publishedAt || a.fetchedAt || 0);
     const db = Date.parse(b.publishedAt || b.fetchedAt || 0);

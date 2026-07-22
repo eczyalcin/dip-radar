@@ -4,6 +4,7 @@
     "name": "TİTCK - Duyurular",
     "homepage": "https://www.titck.gov.tr/duyuru",
     "category": "resmi-kurumlar",
+    "priority": 1,
     "type": "html",
     "listUrl": "https://www.titck.gov.tr/duyuru",
     "selectors": {
@@ -20,6 +21,7 @@
     "name": "TİTCK - Geri Çekme / Satış Yasağı",
     "homepage": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme",
     "category": "geri-cekme",
+    "priority": 1,
     "type": "html",
     "listUrl": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme",
     "selectors": {
@@ -36,6 +38,7 @@
     "name": "T.C. Sağlık Bakanlığı - Basın Duyuruları",
     "homepage": "https://www.saglik.gov.tr/TR-3197/basin-duyurulari.html",
     "category": "resmi-kurumlar",
+    "priority": 1,
     "type": "html",
     "listUrl": "https://www.saglik.gov.tr/TR-3197/basin-duyurulari.html",
     "selectors": {
@@ -51,6 +54,7 @@
     "name": "Türk Eczacıları Birliği",
     "homepage": "https://www.teb.org.tr/news",
     "category": "teb-odalar",
+    "priority": 2,
     "type": "html",
     "listUrl": "https://www.teb.org.tr/news",
     "selectors": {
@@ -69,6 +73,7 @@
     "name": "Düzce Eczacı Odası",
     "homepage": "https://www.duzceeo.org/",
     "category": "duzce",
+    "priority": 4,
     "type": "html",
     "listUrl": "https://www.duzceeo.org/",
     "selectors": {
@@ -86,6 +91,7 @@
     "name": "Ankara Eczacı Odası",
     "homepage": "https://www.aeo.org.tr/",
     "category": "teb-odalar",
+    "priority": 4,
     "type": "html",
     "listUrl": "https://www.aeo.org.tr/",
     "selectors": {
@@ -102,6 +108,7 @@
     "name": "Eczacının Sesi",
     "homepage": "https://www.eczacininsesi.com",
     "category": "sektor",
+    "priority": 3,
     "type": "html",
     "listUrl": "https://www.eczacininsesi.com",
     "selectors": {
