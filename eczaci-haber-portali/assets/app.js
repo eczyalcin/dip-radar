@@ -144,6 +144,11 @@
 
     html += '<div class="news-grid">';
     items.forEach(function (it) {
+      var alsoFromHtml = '';
+      if (it.alsoFrom && it.alsoFrom.length) {
+        var names = it.alsoFrom.map(function (a) { return escapeHtml(a.sourceName); }).join(', ');
+        alsoFromHtml = '<div class="also-from">Ayrıca: ' + names + '</div>';
+      }
       html +=
         '<article class="news-card">' +
         '<a class="news-title" href="' + escapeHtml(it.link) + '" target="_blank" rel="noopener noreferrer">' +
@@ -153,6 +158,7 @@
         '<span class="source-badge">' + escapeHtml(it.sourceName || it.source) + '</span>' +
         '<span>' + escapeHtml(formatRelativeTime(it.publishedAt || it.fetchedAt)) + '</span>' +
         '</div>' +
+        alsoFromHtml +
         '</article>';
     });
     html += '</div>';

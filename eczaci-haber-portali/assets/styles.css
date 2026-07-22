@@ -199,6 +199,13 @@ html, body {
   color: var(--color-text-muted);
 }
 
+.also-from {
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+  border-top: 1px dashed var(--color-border);
+  padding-top: 0.4rem;
+}
+
 .source-badge {
   background: rgba(14, 124, 102, 0.1);
   color: var(--color-primary-dark);
