@@ -1229,12 +1229,25 @@ const CORS_PROXIES=[
   u=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
 ];
 
+/* Proxy'ler bazen hiç yanıt vermeden asılı kalabiliyor; tarayıcının
+   varsayılan bağlantı zaman aşımı çok uzun olduğundan (dakikalarca)
+   her denemeye kısa bir üst sınır konuyor. */
+async function fetchWithTimeout(url, ms){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(), ms);
+  try{
+    return await fetch(url, {signal: ctrl.signal});
+  }finally{
+    clearTimeout(t);
+  }
+}
+
 async function fetchViaCorsProxy(url){
   for(const build of CORS_PROXIES){
     try{
-      const r=await fetch(build(url));
+      const r=await fetchWithTimeout(build(url), 8000);
       if(r.ok) return r;
-    }catch(e){ /* bu proxy başarısız — sıradakini dene */ }
+    }catch(e){ /* bu proxy zaman aşımına uğradı veya başarısız oldu — sıradakini dene */ }
   }
   return null;
 }
