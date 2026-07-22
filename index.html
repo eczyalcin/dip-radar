@@ -371,7 +371,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
     Hisse tarafı <b>FMP API anahtarı</b> gerektirir (financialmodelingprep.com — ücretsiz plan günde 250 istek). Ücretsiz planda yalnızca <b>ABD hisseleri, günlük veriyle</b> taranır: günlük RSI uyumsuzluğu + kapitülasyon + hacimli dönüş mumu. BIST ve intraday (1s/4s) ücretsiz planda desteklenmez. ATH, FMP geçmişiyle sınırlıdır (~5 yıl).
   </div>
   <div class="warnbox" id="s-warnbox-bist" style="display:none">
-    <b>BIST (Yahoo Finance) — deneysel:</b> Anahtar gerekmez. Fiyat verisi Yahoo Finance'in ".IS" (Istanbul) sonekli uç noktasından çekilir — İş Yatırım'ın kendi sitesi tarayıcıdan CORS ile engellendiği doğrulandığı için buna geçildi; Yahoo'nun CORS desteği de tam doğrulanmadı, çalışmazsa bildir. "Tüm BIST hisselerini otomatik tara" butonu, önce Midas'ın canlı sembol listesini dener (genelde CORS ile engellenir), olmazsa koda gömülü ~560 sembollük yedek listeye düşer. Geçmiş, son ~2 yılla sınırlıdır. Semboller sonek istemez (ör. THYAO, ASELS). Yüzlerce hisseyi tek seferde taramak birkaç dakika sürebilir.
+    <b>BIST (Yahoo Finance + CORS proxy) — deneysel:</b> Anahtar gerekmez. Fiyat verisi Yahoo Finance'in ".IS" (Istanbul) sonekli uç noktasından, ücretsiz üçüncü parti bir CORS proxy'si (allorigins.win) üzerinden çekilir — hem İş Yatırım hem de Yahoo'nun kendisi tarayıcıdan doğrudan CORS ile engellendiği kullanıcı testinde doğrulandığı için buna geçildi. Proxy hizmeti kararsız/geçici olabilir, her an durabilir — çalışmazsa bildir. "Tüm BIST hisselerini otomatik tara" butonu, önce Midas'ın canlı sembol listesini dener (genelde CORS ile engellenir), olmazsa koda gömülü ~560 sembollük yedek listeye düşer. Geçmiş, son ~2 yılla sınırlıdır. Semboller sonek istemez (ör. THYAO, ASELS). Yüzlerce hisseyi tek seferde taramak birkaç dakika sürebilir.
   </div>
   <div class="warnbox" id="s-warnbox-de" style="display:none">
     <b>Almanya (Stooq) — deneysel:</b> Stooq artık indirme için ücretsiz ama tek seferlik, captcha ile alınan bir <b>API anahtarı</b> istiyor — aşağıdaki alana gir. Tarayıcıdan doğrudan erişimin (CORS) çalışıp çalışmayacağı doğrulanmadı — çalışmazsa bana bildir. Sembole otomatik ".DE" soneki eklenir (ör. SAP → SAP.DE); istersen kendin de ekleyebilirsin. "Tüm Almanya hisselerini otomatik tara" butonu, DAX+MDAX+SDAX+TecDAX'ten koda gömülü yaklaşık bir sembol listesi kullanır (ücretsiz canlı bir "tüm XETRA sembolleri" kaynağı yok); endeks değişimleriyle zamanla eskiyebilir, hatalı/eski semboller sessizce atlanır.
@@ -1217,14 +1217,21 @@ function setStockMarket(m){
   $("s-scanbtn").textContent = STOCK_SCAN_LABEL[m];
 }
 
+/* Bazı kaynaklar (İş Yatırım, Yahoo Finance) tarayıcıdan doğrudan fetch()
+   ile CORS başlığı döndürmüyor — kullanıcı testinde ikisi de doğrulandı.
+   Bu, ücretsiz/anahtarsız bir üçüncü parti CORS proxy'siyle aşılıyor.
+   Proxy hizmeti her an durabilir/kararsız olabilir; çalışmazsa bildir. */
+function corsProxy(url){
+  return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+}
+
 /* BIST günlük veri — Yahoo Finance'in ".IS" (Istanbul) sonekli anahtarsız
-   chart uç noktası. İş Yatırım'ın kendi sitesi tarayıcıdan CORS ile
-   engellendiği doğrulandığı için (kullanıcı testinde) buna geçildi.
-   Yahoo'nun tarayıcı-içi fetch() ile CORS desteği de tam doğrulanmadı —
-   çalışmazsa bildir. */
+   chart uç noktası, bir CORS proxy üzerinden. İş Yatırım'ın kendi sitesi
+   ve Yahoo'nun kendisi tarayıcıdan CORS ile engellendiği doğrulandığı için
+   (kullanıcı testinde) buna geçildi. */
 async function fetchBistDaily(symbol){
   try{
-    const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}.IS?range=2y&interval=1d`;
+    const url=corsProxy(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}.IS?range=2y&interval=1d`);
     const r=await fetch(url);
     if(!r.ok) return null;
     const j=await r.json();
