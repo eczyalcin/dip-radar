@@ -3,6 +3,9 @@ name: Eczacı Haber Portalı - Kaynak Tanılama
 on:
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   diagnose:
     runs-on: ubuntu-latest
@@ -26,9 +29,18 @@ jobs:
       - name: Kaynakları tanıla
         run: node scripts/diagnose.mjs
 
-      - name: Tanılama çıktısını yükle
+      - name: Tanılama çıktısını yükle (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: diagnostics
           path: eczaci-haber-portali/diagnostics/
           retention-days: 7
+
+      - name: Tanılama çıktısını diagnostics-output branch'ine gönder
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B diagnostics-output
+          git add -f diagnostics/
+          git commit -m "chore: tanılama çıktısı (run ${{ github.run_id }})"
+          git push -f origin diagnostics-output
