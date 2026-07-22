@@ -1,0 +1,65 @@
+[
+  {
+    "id": "titck-duyuru",
+    "name": "TİTCK - Duyurular",
+    "homepage": "https://www.titck.gov.tr/duyuru",
+    "category": "resmi-kurumlar",
+    "type": "auto",
+    "verified": false,
+    "notes": "Türkiye İlaç ve Tıbbi Cihaz Kurumu genel duyuruları. TİTCK'nın /rss adresinde besleme linkleri olduğu tespit edildi ancak tam adres bu ortamdan doğrulanamadı; ilk otomatik taramada keşif denenecek."
+  },
+  {
+    "id": "titck-geri-cekme",
+    "name": "TİTCK - Geri Çekme / Satış Yasağı",
+    "homepage": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme",
+    "category": "geri-cekme",
+    "type": "auto",
+    "verified": false,
+    "notes": "İlaç geri çekme ve satış blokajı duyuruları. Eczacılar için operasyonel açıdan en kritik kaynaklardan biri."
+  },
+  {
+    "id": "saglik-bakanligi",
+    "name": "T.C. Sağlık Bakanlığı",
+    "homepage": "https://www.saglik.gov.tr/",
+    "category": "resmi-kurumlar",
+    "type": "auto",
+    "verified": false,
+    "notes": "Ana sayfadan RSS keşfi denenecek. Basın Odası / duyurular sayfasının kesin adresi doğrulanınca güncellenmeli."
+  },
+  {
+    "id": "teb",
+    "name": "Türk Eczacıları Birliği",
+    "homepage": "https://www.teb.org.tr/news",
+    "category": "teb-odalar",
+    "type": "auto",
+    "verified": true,
+    "notes": "Haberler sayfası doğrulandı (teb.org.tr/news). RSS keşfi denenecek; bulunamazsa HTML seçicileri elle eklenmeli."
+  },
+  {
+    "id": "duzce-eczaci-odasi",
+    "name": "Düzce Eczacı Odası",
+    "homepage": "https://www.duzceeo.org/",
+    "category": "duzce",
+    "type": "auto",
+    "verified": true,
+    "notes": "Ana sayfa doğrulandı (duzceeo.org). Duyurular alt sayfasının kesin adresi ve HTML yapısı henüz doğrulanmadı."
+  },
+  {
+    "id": "ankara-eczaci-odasi",
+    "name": "Ankara Eczacı Odası",
+    "homepage": "https://www.aeo.org.tr/",
+    "category": "teb-odalar",
+    "type": "auto",
+    "verified": true,
+    "notes": "Ana sayfa doğrulandı (aeo.org.tr). Büyük bir bölge odası olarak çekirdek kaynak setine eklendi."
+  },
+  {
+    "id": "eczacinin-sesi",
+    "name": "Eczacının Sesi",
+    "homepage": "https://www.eczacininsesi.com",
+    "category": "sektor",
+    "type": "auto",
+    "verified": true,
+    "notes": "Eczacılık sektörü haber sitesi. RSS keşfi denenecek."
+  }
+]
