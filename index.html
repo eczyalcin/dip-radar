@@ -361,15 +361,27 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 <!-- ================= HİSSE ================= -->
 <div class="panel" id="panel-stock">
 
-  <div class="warnbox">
+  <div class="filterbar on" id="s-market">
+    <div class="fbtn active" data-market="us" onclick="setStockMarket('us')">ABD (FMP)</div>
+    <div class="fbtn" data-market="bist" onclick="setStockMarket('bist')">BIST (İş Yatırım)</div>
+    <div class="fbtn" data-market="de" onclick="setStockMarket('de')">Almanya (Stooq)</div>
+  </div>
+
+  <div class="warnbox" id="s-warnbox">
     Hisse tarafı <b>FMP API anahtarı</b> gerektirir (financialmodelingprep.com — ücretsiz plan günde 250 istek). Ücretsiz planda yalnızca <b>ABD hisseleri, günlük veriyle</b> taranır: günlük RSI uyumsuzluğu + kapitülasyon + hacimli dönüş mumu. BIST ve intraday (1s/4s) ücretsiz planda desteklenmez. ATH, FMP geçmişiyle sınırlıdır (~5 yıl).
+  </div>
+  <div class="warnbox" id="s-warnbox-bist" style="display:none">
+    <b>BIST (İş Yatırım) — deneysel:</b> Anahtar gerekmez, İş Yatırım'ın kendi web sitesini besleyen resmî olmayan bir veri uç noktası kullanılır. Tarayıcıdan doğrudan erişimin (CORS) çalışıp çalışmayacağı doğrulanmadı — çalışmazsa bana bildir. Açılış fiyatı verilmediği için önceki günün kapanışına yaklaşık olarak düşülür. Geçmiş, son ~2 yılla sınırlıdır. Semboller sonek istemez (ör. THYAO, ASELS).
+  </div>
+  <div class="warnbox" id="s-warnbox-de" style="display:none">
+    <b>Almanya (Stooq) — deneysel:</b> Anahtar gerekmez, Stooq'un ücretsiz CSV indirme uç noktası kullanılır. Tarayıcıdan doğrudan erişimin (CORS) çalışıp çalışmayacağı doğrulanmadı — çalışmazsa bana bildir. Sembole otomatik ".DE" soneki eklenir (ör. SAP → SAP.DE); istersen kendin de ekleyebilirsin.
   </div>
 
   <details class="settings" open>
     <summary>Anahtar, liste ve ayarlar</summary>
     <div class="settings-body">
-      <div class="field full"><label>FMP API anahtarı</label><input type="password" id="s-key" placeholder="apikey"></div>
-      <div class="field full"><label>Hazır paket seç (kutuyu doldurur)</label>
+      <div class="field full" id="s-fmp-only"><label>FMP API anahtarı</label><input type="password" id="s-key" placeholder="apikey"></div>
+      <div class="field full" id="s-pack-only"><label>Hazır paket seç (kutuyu doldurur)</label>
         <select id="s-pack" onchange="applyPack()" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
           <option value="">— Manuel —</option>
           <option value="p1">1 · Growth enkazı / yüksek-beta (~40)</option>
@@ -382,7 +394,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
           <option value="p8">8 · S&P 500 likit çekirdek (~150)</option>
         </select>
       </div>
-      <div class="field full"><label>Sembol listesi (virgülle; sadece ABD sembolleri)</label><textarea id="s-list">AAPL, NVDA, TSLA, AMD, PLTR, COIN</textarea></div>
+      <div class="field full"><label id="s-list-label">Sembol listesi (virgülle; sadece ABD sembolleri)</label><textarea id="s-list">AAPL, NVDA, TSLA, AMD, PLTR, COIN</textarea></div>
       <div class="field full"><button class="ghost" onclick="clearList()" style="width:100%;padding:10px">Listeyi temizle</button></div>
       <div class="field"><label>Zirveden düşüş eşiği (% ve üzeri)</label><input type="number" id="s-dd" value="50" min="10" max="99"></div>
       <div class="field"><label>RSI periyodu</label><input type="number" id="s-rsip" value="14" min="5" max="30"></div>
@@ -1163,6 +1175,103 @@ async function scanCrypto(){
 }
 
 /* ---------- HİSSE (FMP) ---------- */
+/* ---------- Hisse: piyasa seçici (ABD/FMP, BIST/İş Yatırım, Almanya/Stooq) ---------- */
+let stockMarket="us"; // "us" | "bist" | "de"
+const STOCK_DEFAULT_LIST={
+  us:"AAPL, NVDA, TSLA, AMD, PLTR, COIN",
+  bist:"THYAO, ASELS, SASA, KCHOL, EREGL, BIMAS, SISE, TUPRS, FROTO, AKBNK",
+  de:"SAP, SIE, BMW, VOW3, ALV, BAS, DTE, MBG, ADS, DBK"
+};
+const STOCK_LIST_LABEL={
+  us:"Sembol listesi (virgülle; sadece ABD sembolleri)",
+  bist:"Sembol listesi (virgülle; sonek istemez — THYAO, ASELS gibi)",
+  de:"Sembol listesi (virgülle; .DE otomatik eklenir — SAP, SIE gibi)"
+};
+const STOCK_SCAN_LABEL={
+  us:"Hisse taramasını başlat",
+  bist:"BIST taramasını başlat",
+  de:"Almanya taramasını başlat"
+};
+
+function setStockMarket(m){
+  store.set("watchlist:"+stockMarket, $("s-list").value); // eski piyasanın listesini kaybetme
+  stockMarket=m;
+  document.querySelectorAll('#s-market .fbtn').forEach(b=>b.classList.toggle("active", b.dataset.market===m));
+  $("s-fmp-only").style.display = m==="us" ? "" : "none";
+  $("s-pack-only").style.display = m==="us" ? "" : "none";
+  $("s-warnbox").style.display = m==="us" ? "" : "none";
+  $("s-warnbox-bist").style.display = m==="bist" ? "" : "none";
+  $("s-warnbox-de").style.display = m==="de" ? "" : "none";
+  $("s-list-label").textContent = STOCK_LIST_LABEL[m];
+  $("s-list").value = store.get("watchlist:"+m, STOCK_DEFAULT_LIST[m]);
+  $("s-scanbtn").textContent = STOCK_SCAN_LABEL[m];
+}
+
+function isyDateStr(d){
+  const dd=String(d.getDate()).padStart(2,"0");
+  const mm=String(d.getMonth()+1).padStart(2,"0");
+  return `${dd}-${mm}-${d.getFullYear()}`;
+}
+
+/* BIST günlük veri — İş Yatırım'ın kendi web sitesini besleyen, resmî
+   olmayan ama anahtar gerektirmeyen bir uç nokta. Açılış fiyatı verilmez;
+   önceki günün kapanışına yaklaşık olarak düşülür. */
+async function fetchBistDaily(symbol){
+  try{
+    const end=new Date();
+    const start=new Date(); start.setFullYear(start.getFullYear()-2);
+    const url=`https://www.isyatirim.com.tr/_layouts/15/Isyatirim.Website/Common/Data.aspx/HisseTekil?hisse=${encodeURIComponent(symbol)}&startdate=${isyDateStr(start)}&enddate=${isyDateStr(end)}`;
+    const r=await fetch(url);
+    if(!r.ok) return null;
+    const j=await r.json();
+    const rows=j && Array.isArray(j.value) ? j.value : null;
+    if(!rows || !rows.length) return null;
+    const o=[],h=[],l=[],c=[],v=[];
+    let prevClose=null;
+    for(const row of rows){
+      const close=+row.HGDG_KAPANIS, hi=+row.HGDG_MAX, lo=+row.HGDG_MIN, vol=+row.HGDG_HACIM||0;
+      if(!isFinite(close) || close<=0) continue;
+      o.push(prevClose!=null ? prevClose : close);
+      h.push(isFinite(hi) && hi>0 ? hi : close);
+      l.push(isFinite(lo) && lo>0 ? lo : close);
+      c.push(close);
+      v.push(isFinite(vol) ? vol : 0);
+      prevClose=close;
+    }
+    if(c.length<40) return null;
+    return {o,h,l,c,v};
+  }catch(e){ return null; } /* ağ hatası veya CORS engeli — sessizce atla */
+}
+
+/* Almanya (XETRA/Frankfurt) günlük veri — Stooq'un ücretsiz, anahtarsız
+   CSV indirme uç noktası. Sembole otomatik ".DE" soneki eklenir. */
+async function fetchStooqDaily(symbol){
+  try{
+    const sym=symbol.toLowerCase().endsWith(".de") ? symbol.toLowerCase() : symbol.toLowerCase()+".de";
+    const r=await fetch(`https://stooq.com/q/d/l/?s=${encodeURIComponent(sym)}&i=d`);
+    if(!r.ok) return null;
+    const text=await r.text();
+    if(!text || text[0]==="<") return null; // beklenmeyen bir HTML hata sayfası dönebilir
+    const lines=text.trim().split("\n");
+    if(lines.length<2) return null;
+    const header=lines[0].split(",").map(s=>s.trim().toLowerCase());
+    const iO=header.indexOf("open"), iH=header.indexOf("high"), iL=header.indexOf("low"),
+          iC=header.indexOf("close"), iV=header.indexOf("volume");
+    if(iO<0||iH<0||iL<0||iC<0) return null;
+    const o=[],h=[],l=[],c=[],v=[];
+    for(let i=1;i<lines.length;i++){
+      const cols=lines[i].split(",");
+      if(cols.length<5) continue;
+      const cc=+cols[iC];
+      if(!isFinite(cc) || cc<=0) continue;
+      o.push(+cols[iO]); h.push(+cols[iH]); l.push(+cols[iL]); c.push(cc);
+      v.push(iV>=0 && isFinite(+cols[iV]) ? +cols[iV] : 0);
+    }
+    if(c.length<40) return null;
+    return {o,h,l,c,v};
+  }catch(e){ return null; } /* ağ hatası veya CORS engeli — sessizce atla */
+}
+
 function stockParams(){
   return {
     ddMin: parseFloat($("s-dd").value)/100,
@@ -1179,11 +1288,15 @@ function stockParams(){
 
 async function scanStocks(){
   abortFlag=false;
-  const key=$("s-key").value.trim();
-  if(!key){ $("s-status").innerHTML='<span class="err">FMP API anahtarı gerekli.</span>'; return; }
-  store.set("fmpkey", key);
+  const market=stockMarket;
+  let key="";
+  if(market==="us"){
+    key=$("s-key").value.trim();
+    if(!key){ $("s-status").innerHTML='<span class="err">FMP API anahtarı gerekli.</span>'; return; }
+    store.set("fmpkey", key);
+  }
   const syms=$("s-list").value.split(",").map(s=>s.trim().toUpperCase()).filter(Boolean);
-  store.set("watchlist", $("s-list").value);
+  store.set("watchlist:"+market, $("s-list").value);
   if(!syms.length){ $("s-status").innerHTML='<span class="err">Sembol listesi boş.</span>'; return; }
 
   beginScan();
@@ -1198,34 +1311,49 @@ async function scanStocks(){
   const results=[], errors=[];
   let gateCount=0, done=0;
 
-  await pool(syms, 3, async (sym)=>{
+  await pool(syms, market==="us"?3:4, async (sym)=>{
     try{
-      /* FMP /stable/ günlük veri — tek istek/sembol */
-      const dr=await fetch(`https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${encodeURIComponent(sym)}&apikey=${encodeURIComponent(key)}`);
-      const dj=await dr.json();
-      /* yeni format düz dizi; eski format {historical:[...]} — ikisini de destekle */
-      const hist=Array.isArray(dj) ? dj : (dj && dj.historical);
-      if(!hist || !hist.length){
-        const msg=(dj && (dj["Error Message"]||dj.error)) ? " — "+(dj["Error Message"]||dj.error) : "";
-        errors.push(sym+": günlük veri yok (anahtar/plan/sembol?)"+msg); return;
+      let sD, price, ath;
+      if(market==="us"){
+        /* FMP /stable/ günlük veri — tek istek/sembol */
+        const dr=await fetch(`https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${encodeURIComponent(sym)}&apikey=${encodeURIComponent(key)}`);
+        const dj=await dr.json();
+        /* yeni format düz dizi; eski format {historical:[...]} — ikisini de destekle */
+        const hist=Array.isArray(dj) ? dj : (dj && dj.historical);
+        if(!hist || !hist.length){
+          const msg=(dj && (dj["Error Message"]||dj.error)) ? " — "+(dj["Error Message"]||dj.error) : "";
+          errors.push(sym+": günlük veri yok (anahtar/plan/sembol?)"+msg); return;
+        }
+        ath=0; price=+hist[0].close;
+        for(const d of hist){ const hh=(d.high!=null?+d.high:+d.close); if(hh>ath) ath=hh; }
+
+        /* günlük seri — FMP yeni→eski verir, ters çevir */
+        const darr=hist.slice(0,300).reverse();
+        sD={o:[],h:[],l:[],c:[],v:[]};
+        for(const d of darr){
+          sD.o.push(+(d.open!=null?d.open:d.close));
+          sD.h.push(+(d.high!=null?d.high:d.close));
+          sD.l.push(+(d.low!=null?d.low:d.close));
+          sD.c.push(+d.close);
+          sD.v.push(+d.volume||0);
+        }
+      } else if(market==="bist"){
+        sD=await fetchBistDaily(sym);
+        if(!sD){ errors.push(sym+": veri alınamadı (sembol/CORS?)"); return; }
+        price=sD.c[sD.c.length-1];
+        ath=Math.max(...sD.h); // ~2 yıllık pencere içindeki zirve — bkz. uyarı kutusu
+      } else {
+        sD=await fetchStooqDaily(sym);
+        if(!sD){ errors.push(sym+": veri alınamadı (sembol/CORS?)"); return; }
+        price=sD.c[sD.c.length-1];
+        ath=Math.max(...sD.h);
       }
-      let ath=0, price=+hist[0].close;
-      for(const d of hist){ const hh=(d.high!=null?+d.high:+d.close); if(hh>ath) ath=hh; }
+
       if(ath<=0){ errors.push(sym+": zirve hesaplanamadı"); return; }
       const dd=1-price/ath;
       if(dd < p.ddMin) return;
       gateCount++;
 
-      /* günlük seri — FMP yeni→eski verir, ters çevir */
-      const darr=hist.slice(0,300).reverse();
-      const sD={o:[],h:[],l:[],c:[],v:[]};
-      for(const d of darr){
-        sD.o.push(+(d.open!=null?d.open:d.close));
-        sD.h.push(+(d.high!=null?d.high:d.close));
-        sD.l.push(+(d.low!=null?d.low:d.close));
-        sD.c.push(+d.close);
-        sD.v.push(+d.volume||0);
-      }
       const sig=analyzeDaily(sD,p);
       if(sig && sig.score>=1){
         results.push({symbol:sym, price, ath, dd, sig});
@@ -1240,8 +1368,12 @@ async function scanStocks(){
     }
   });
 
-  status.textContent=abortFlag?"Tarama durduruldu.":"Tarama tamamlandı. (Not: zirve, FMP geçmişiyle sınırlıdır — gerçek ATH olmayabilir.)";
-  renderResults(results,"s","");
+  const marketNote = market==="us"
+    ? " (Not: zirve, FMP geçmişiyle sınırlıdır — gerçek ATH olmayabilir.)"
+    : " (Not: zirve, ~2 yıllık geçmişle sınırlıdır — gerçek ATH olmayabilir.)";
+  status.textContent=(abortFlag?"Tarama durduruldu.":"Tarama tamamlandı.")+marketNote;
+  const currency = market==="bist" ? "TL" : (market==="de" ? "EUR" : "");
+  renderResults(results,"s",currency);
   if(errors.length){
     $("s-errors").innerHTML='<div class="warnbox">'+errors.map(e=>"• "+escapeHtml(e)).join("<br>")+"</div>";
   }
@@ -1999,7 +2131,10 @@ function clearList(){
 (function(){
   const k=store.get("fmpkey",""); if(k) $("s-key").value=k;
   const lk=store.get("lunarkey",""); if(lk) $("lc-key").value=lk;
-  const w=store.get("watchlist",""); if(w) $("s-list").value=w;
+  /* "watchlist" (piyasa seçici öncesi, eski tek liste) varsa ABD listesine taşı */
+  const legacyW=store.get("watchlist","");
+  const w=store.get("watchlist:us", legacyW);
+  if(w) $("s-list").value=w;
 
   /* son tarama sonuçlarını geri yükle (sayfa yenilenince kaybolmasın) */
   ["c","s"].forEach(p=>{
