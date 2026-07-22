@@ -1257,7 +1257,8 @@ async function fetchBistDaily(symbol){
    tablosunu besleyen, resmî olmayan ama anahtarsız bir uç nokta.
    Yalnızca güncel anlık veriyi döndürür; geçmiş veri için her sembol
    ayrıca fetchBistDaily ile çekilir (kripto taramasındaki "önce evren,
-   sonra sembol başına geçmiş" düzenine bire bir aynı). */
+   sonra sembol başına geçmiş" düzenine bire bir aynı). Tarayıcıdan
+   CORS erişimi doğrulanamadı; başarısız olursa BIST_UNIVERSE_FALLBACK'e düşülür. */
 async function fetchBistUniverse(){
   try{
     const r=await fetch("https://www.getmidas.com/wp-json/midas-api/v1/midas_table_data?sortId=&return=table");
@@ -1270,18 +1271,47 @@ async function fetchBistUniverse(){
   }catch(e){ return null; } /* ağ hatası veya CORS engeli — sessizce atla */
 }
 
-/* "Tüm BIST hisselerini otomatik tara" butonu: evreni çek, kutuyu
-   doldur (şeffaflık için), ardından normal BIST taramasını başlat. */
+/* Midas'a canlı erişim çalışmazsa (CORS doğrulanamadı, şu an bilinen durum
+   budur) kullanılan koda gömülü yedek BIST sembol evreni — BIST 30/50/100
+   ve bilinen birçok Ana/Yıldız Pazar hissesini kapsar. Zamanla eskiyebilir
+   (yeni halka arz/kod değişikliği); hatalı/eski semboller fetchBistDaily
+   tarafından sessizce atlanır. */
+const BIST_UNIVERSE_FALLBACK=[...new Set([
+  "THYAO","GARAN","AKBNK","ISCTR","YKBNK","VAKBN","HALKB","TSKB","ICBCT","ALBRK","SKBNK","QNBFB",
+  "ASELS","KCHOL","SAHOL","TUPRS","EREGL","BIMAS","SISE","FROTO","TOASO","PETKM","PGSUS","TCELL",
+  "TTKOM","ENKAI","KOZAL","KOZAA","SASA","ARCLK","VESTL","VESBE","HEKTS","ALARK","EKGYO","ODAS",
+  "TAVHL","DOHOL","TKFEN","GLYHO","AGHOL","YAZIC","KRDMD","KRDMA","KRDMB","OTKAR","TTRAK","BFREN",
+  "DOAS","KARSN","CIMSA","AKCNS","BUCIM","GOLTS","KONYA","NUHCM","MGROS","SOKM","ULKER","CCOLA",
+  "AEFES","TATGD","PNSUT","ISDMR","TAVHL","CLEBI","RYSAS","GSDHO","AKSEN","ZOREN","ENJSA","AYDEM",
+  "BIOEN","ALFAS","SMRTG","AKFYE","ANHYT","ANSGR","TURSG","AKGRT","RAYSG","ISMEN","GEDIK","GLBMD",
+  "ALKIM","ISGYO","HLGYO","TRGYO","SNGYO","YGGYO","VKGYO","AKMGY","KLGYO","PEGYO","OZKGY","NUGYO",
+  "DGGYO","KRGYO","RYGYO","BAGFS","GUBRF","MAVI","SKTAS","DESA","BRSAN","KORDS","LOGO","NETAS",
+  "ARENA","INDES","KAREL","DEVA","SELEC","ECZYT","LKMNH","IPEKE","OYAKC","TSPOR","FENER","GSRAY",
+  "BJKAS","KARTN","MNDRS","EGEEN","ALCTL","AKSA","AKGRT","ASUZU","BASGZ","BERA","BRISA","BURCE",
+  "CANTE","CEMTS","CWENE","DOHOL","ECILC","EGSER","EUPWR","FMIZP","GENIL","GESAN","GWIND","IHLAS",
+  "ISKUR","IZMDC","KAYSE","KLKIM","KMPUR","KONTR","KOPOL","KUYAS","MAGEN","MARTI","MERKO","MPARK",
+  "OYAKC","OZRDN","PARSN","PASEU","POLHO","PSGYO","QUAGR","REEDR","SDTTR","SEKUR","SMART","SNPAM",
+  "SUMAS","TABGD","TDGYO","TEZOL","TMSN","TRILC","TUKAS","ULUUN","VESBE","VBTYZ","YATAS","YEOTK",
+  "YYLGD","ZEDUR","ZRGYO"
+])];
+
+/* "Tüm BIST hisselerini otomatik tara" butonu: önce canlı evreni dener,
+   olmazsa yerleşik yedek listeye düşer; sonra kutuyu doldurup
+   (şeffaflık için) normal BIST taramasını başlatır. */
 async function scanAllBist(){
   const status=$("s-status");
   status.textContent="Tüm BIST sembol listesi alınıyor…";
-  const codes=await fetchBistUniverse();
+  let codes=await fetchBistUniverse();
+  let usedFallback=false;
   if(!codes || !codes.length){
-    status.innerHTML='<span class="err">BIST sembol listesi alınamadı (ağ/CORS sorunu olabilir). Elle sembol girmeyi dene.</span>';
-    return;
+    codes=BIST_UNIVERSE_FALLBACK;
+    usedFallback=true;
   }
   $("s-list").value=codes.join(", ");
   store.set("watchlist:bist", $("s-list").value);
+  if(usedFallback){
+    status.innerHTML='<span class="err">Canlı liste alınamadı (ağ/CORS) — koda gömülü ~'+codes.length+' hisselik yedek liste kullanılıyor, tarama başlıyor…</span>';
+  }
   await scanStocks();
 }
 
