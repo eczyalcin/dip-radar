@@ -1359,19 +1359,24 @@ async function scanAllDe(){
    değişimleriyle zamanla eskiyebilir; hatalı/eski semboller fetchStooqDaily
    tarafından sessizce atlanır. */
 const DE_UNIVERSE=[...new Set([
-  /* DAX 40 */
-  "ADS","AIR","ALV","BAS","BAYN","BEI","BMW","BNR","CBK","CON","1COV","DHL","DBK","DB1",
-  "DTE","DTG","EOAN","FRE","HNR1","HEI","HEN3","IFX","MBG","MRK","MTX","MUV2","PAH3","P911",
-  "PUM","QIA","RHM","RWE","SAP","SRT3","SIE","ENR","SHL","SY1","VOW3","VNA","ZAL",
-  /* MDAX (seçili) */
-  "AT1","AFX","BC8","CEC","DUE","EVK","EVT","FIE","FPE3","FNTN","G1A","GXI","HFG","JUN3",
-  "KGX","KRN","LEG","LXS","NDA","NEM","PBB","RAA","SDF","SIX2","SZG","SZU","TEG","TKA",
-  "TLX","TMV","UTDI","VBK","VOS","WAF","WCH","HYQ","KCO","SAX","BOSS","LHA","PSM","DEZ",
-  "NDX1","SHA","SGL","GFT","JEN",
-  /* SDAX (seçili) */
-  "AOX","INH","KSB3","SANT","BVB","DIC","MLP","SUR","SFQ","DEQ","EVD","CAP","R3NK",
-  /* TecDAX (seçili) */
-  "AIXA","S92","PNE3","DRW3","COP","ADN1","SUSE","NA9"
+  /* DAX 40 — kullanıcı tarafından doğrulandı */
+  "ADS","AIR","ALV","BAS","BAYN","BEI","BMW","BNR","CBK","CON","DTG","DBK","DB1","DHL",
+  "DTE","EOAN","FRE","FME","HNR1","HEI","HEN3","IFX","MBG","MRK","MTX","MUV2","P911","PAH3",
+  "QIA","RHM","RWE","SAP","SRT3","SIE","ENR","SHL","SY1","VOW3","VNA","ZAL",
+  /* MDAX — kullanıcı tarafından doğrulandı */
+  "AIXA","AT1","GBF","AFX","EVD","DHER","DWS","EVK","FRA","GXI","HLE","HFG","HAG","HOT",
+  "BOSS","HYQ","SDF","KGX","KBX","LXS","LEG","LHA","NEM","NDX1","PUM","RDC","R3NK","RRTL",
+  "G24","STM","SAX","TEG","TLX","TMV","TKA","8TRA","UTDI","WCH","EVT","JEN","KRN","FPE3",
+  "WAF","BFSA","DWNI","AG1","FTK","NDA","JUN3","DEQ",
+  /* SDAX — kullanıcı tarafından doğrulandı */
+  "1U1","ADN1","ADV","ACT","AOF","BFSA","BVB","COK","AFX","CWC","DBAN","DEQ","DEZ","DRW3",
+  "ELG","EKT","FYB","GFT","GYC","GLJ","HHFA","HDD","HBH","HBM","INH","JEN","KGX","KCO","KTN",
+  "KRN","ILM1","B4B","MLP","NA9","NOEJ","PAT","PSM","TPE","SFQ","SZG","SHA","1SXP","YSN","SGL",
+  "WAF","STM","SBS","SZU","TTK","NCH2","VBK","VOS","WAC","WUW","EUZ","AAD","MUX","SPG","VH2",
+  "DOU","MBB","STO3","FIE","COP","DMP","HLAG","VIB3",
+  /* TecDAX — kullanıcı tarafından doğrulandı */
+  "1U1","AIXA","AOF","COK","AFX","COP","DTE","DRW3","EUZ","ELG","EVT","FNTN","IFX","JEN",
+  "KTN","NA9","NEM","NDX1","TPE","QIA","SAP","SRT3","SHL","WAF","S92","SMHN","TMV","UTDI","VBK"
 ])];
 
 /* Almanya (XETRA/Frankfurt) günlük veri — Stooq'un CSV indirme uç noktası.
