@@ -374,7 +374,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
     <b>BIST (Yahoo Finance) — deneysel:</b> Anahtar gerekmez. Fiyat verisi Yahoo Finance'in ".IS" (Istanbul) sonekli uç noktasından çekilir — İş Yatırım'ın kendi sitesi ve Yahoo'nun kendisi tarayıcıdan doğrudan CORS ile engellendiği kullanıcı testinde doğrulandığı için, ücretsiz genel CORS proxy'leri (allorigins.win, corsproxy.io, codetabs.com — sırayla denenir, her biri 8sn zaman aşımlı) üzerinden erişiliyor. Bu proxy'ler kararsız olabiliyor; en güvenilir çözüm, ayarlardaki alana kendi ücretsiz Cloudflare Worker adresini eklemek (varsa önce o denenir). Geçmiş, son ~2 yılla sınırlıdır. Semboller sonek istemez (ör. THYAO, ASELS). Yüzlerce hisseyi tek seferde taramak birkaç dakika sürebilir.
   </div>
   <div class="warnbox" id="s-warnbox-de" style="display:none">
-    <b>Almanya (Stooq) — deneysel:</b> Stooq artık indirme için ücretsiz ama tek seferlik, captcha ile alınan bir <b>API anahtarı</b> istiyor — aşağıdaki alana gir. Tarayıcıdan doğrudan erişimin (CORS) çalışıp çalışmayacağı doğrulanmadı — çalışmazsa bana bildir. Sembole otomatik ".DE" soneki eklenir (ör. SAP → SAP.DE); istersen kendin de ekleyebilirsin. "Tüm Almanya hisselerini otomatik tara" butonu, DAX+MDAX+SDAX+TecDAX'ten koda gömülü yaklaşık bir sembol listesi kullanır (ücretsiz canlı bir "tüm XETRA sembolleri" kaynağı yok); endeks değişimleriyle zamanla eskiyebilir, hatalı/eski semboller sessizce atlanır.
+    <b>Almanya (Yahoo Finance) — deneysel:</b> Anahtar gerekmez. Fiyat verisi Yahoo Finance'in ".DE" (XETRA) sonekli uç noktasından, BIST'teki ile aynı yöntemle (genel CORS proxy'leri, varsa önce kendi Cloudflare Worker'ın) çekilir. Sembole otomatik ".DE" soneki eklenir (ör. SAP → SAP.DE). "Tüm Almanya hisselerini otomatik tara" butonu, DAX+MDAX+SDAX+TecDAX'ten koda gömülü yaklaşık bir sembol listesi kullanır (ücretsiz canlı bir "tüm XETRA sembolleri" kaynağı yok); endeks değişimleriyle zamanla eskiyebilir, hatalı/eski semboller sessizce atlanır.
   </div>
 
   <details class="settings" open>
@@ -394,17 +394,12 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
           <option value="p8">8 · S&P 500 likit çekirdek (~150)</option>
         </select>
       </div>
-      <div class="field full" id="s-bist-only" style="display:none">
+      <div class="field full" id="s-cors-worker-field" style="display:none">
         <label>Kendi CORS proxy adresin (opsiyonel — Cloudflare Worker vb.)</label>
-        <input type="text" id="s-bist-worker" placeholder="https://senin-worker-adresin.workers.dev" onchange="store.set('bistworker', this.value)">
-        <div style="font-size:12px;opacity:.7;margin-top:4px">Boş bırakılırsa ücretsiz genel CORS proxy'leri denenir (kararsız olabilir). Kendi Worker'ın varsa buraya adresini yapıştır, daha güvenilir olur.</div>
+        <input type="text" id="s-cors-worker" placeholder="https://senin-worker-adresin.workers.dev" onchange="store.set('corsworker', this.value)">
+        <div style="font-size:12px;opacity:.7;margin-top:4px">Boş bırakılırsa ücretsiz genel CORS proxy'leri denenir (kararsız olabilir). Kendi Worker'ın varsa buraya adresini yapıştır, hem BIST hem Almanya için kullanılır.</div>
       </div>
       <div class="field full" id="s-bist-auto" style="display:none"><button class="ghost" onclick="scanAllBist()" style="width:100%;padding:10px">Tüm BIST hisselerini otomatik tara</button></div>
-      <div class="field full" id="s-de-only" style="display:none">
-        <label>Stooq API anahtarı</label>
-        <input type="password" id="s-stooq-key" placeholder="apikey" onchange="store.set('stooqkey', this.value)">
-        <div style="font-size:12px;opacity:.7;margin-top:4px">Ücretsiz, tek seferlik: <a href="https://stooq.com/q/d/?s=sap.de&get_apikey" target="_blank" rel="noopener">bu bağlantıda</a> captcha'yı çöz, altta çıkan indirme linkindeki <code>apikey=</code> değerini buraya yapıştır.</div>
-      </div>
       <div class="field full" id="s-de-auto" style="display:none"><button class="ghost" onclick="scanAllDe()" style="width:100%;padding:10px">Tüm Almanya hisselerini otomatik tara (DAX+MDAX+SDAX+TecDAX)</button></div>
       <div class="field full"><label id="s-list-label">Sembol listesi (virgülle; sadece ABD sembolleri)</label><textarea id="s-list">AAPL, NVDA, TSLA, AMD, PLTR, COIN</textarea></div>
       <div class="field full"><button class="ghost" onclick="clearList()" style="width:100%;padding:10px">Listeyi temizle</button></div>
@@ -1214,9 +1209,8 @@ function setStockMarket(m){
   $("s-warnbox").style.display = m==="us" ? "" : "none";
   $("s-warnbox-bist").style.display = m==="bist" ? "" : "none";
   $("s-warnbox-de").style.display = m==="de" ? "" : "none";
-  $("s-bist-only").style.display = m==="bist" ? "" : "none";
+  $("s-cors-worker-field").style.display = (m==="bist"||m==="de") ? "" : "none";
   $("s-bist-auto").style.display = m==="bist" ? "" : "none";
-  $("s-de-only").style.display = m==="de" ? "" : "none";
   $("s-de-auto").style.display = m==="de" ? "" : "none";
   $("s-list-label").textContent = STOCK_LIST_LABEL[m];
   $("s-list").value = store.get("watchlist:"+m, STOCK_DEFAULT_LIST[m]);
@@ -1267,13 +1261,13 @@ async function fetchViaCorsProxy(url, ownWorker){
   return null;
 }
 
-/* BIST günlük veri — Yahoo Finance'in ".IS" (Istanbul) sonekli anahtarsız
-   chart uç noktası, sırayla denenen CORS proxy'leri üzerinden. İş
-   Yatırım'ın kendi sitesi ve Yahoo'nun kendisi tarayıcıdan CORS ile
+/* BIST ve Almanya günlük veri — Yahoo Finance'in ".IS"/".DE" sonekli
+   anahtarsız chart uç noktası, sırayla denenen CORS proxy'leri üzerinden.
+   İş Yatırım, Stooq ve Yahoo'nun kendisi tarayıcıdan doğrudan CORS ile
    engellendiği doğrulandığı için (kullanıcı testinde) buna geçildi. */
-async function fetchBistDaily(symbol, ownWorker){
+async function fetchYahooDaily(symbol, suffix, ownWorker){
   try{
-    const target=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}.IS?range=2y&interval=1d`;
+    const target=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}${suffix}?range=2y&interval=1d`;
     const r=await fetchViaCorsProxy(target, ownWorker);
     if(!r) return null;
     const j=await r.json();
@@ -1295,6 +1289,9 @@ async function fetchBistDaily(symbol, ownWorker){
     return {o,h,l,c,v};
   }catch(e){ return null; } /* ağ hatası veya CORS engeli — sessizce atla */
 }
+
+async function fetchBistDaily(symbol, ownWorker){ return fetchYahooDaily(symbol, ".IS", ownWorker); }
+async function fetchDeDaily(symbol, ownWorker){ return fetchYahooDaily(symbol, ".DE", ownWorker); }
 
 /* Tüm BIST sembol evreni — Midas'ın kendi sitesindeki güncel fiyat
    tablosunu besleyen, resmî olmayan ama anahtarsız bir uç nokta.
@@ -1373,8 +1370,8 @@ const BIST_UNIVERSE_FALLBACK=[...new Set([
 async function scanAllBist(){
   const status=$("s-status");
   status.textContent="Tüm BIST sembol listesi alınıyor…";
-  const bistWorker=$("s-bist-worker").value.trim();
-  let codes=await fetchBistUniverse(bistWorker);
+  const corsWorker=$("s-cors-worker").value.trim();
+  let codes=await fetchBistUniverse(corsWorker);
   let usedFallback=false;
   if(!codes || !codes.length){
     codes=BIST_UNIVERSE_FALLBACK;
@@ -1399,7 +1396,7 @@ async function scanAllDe(){
 
 /* DAX + MDAX + SDAX + TecDAX — canlı/ücretsiz bir "tüm XETRA sembolleri"
    kaynağı olmadığı için koda gömülü yaklaşık bir evren listesi. Endeks
-   değişimleriyle zamanla eskiyebilir; hatalı/eski semboller fetchStooqDaily
+   değişimleriyle zamanla eskiyebilir; hatalı/eski semboller fetchDeDaily
    tarafından sessizce atlanır. */
 const DE_UNIVERSE=[...new Set([
   /* DAX 40 — kullanıcı tarafından doğrulandı */
@@ -1421,37 +1418,6 @@ const DE_UNIVERSE=[...new Set([
   "1U1","AIXA","AOF","COK","AFX","COP","DTE","DRW3","EUZ","ELG","EVT","FNTN","IFX","JEN",
   "KTN","NA9","NEM","NDX1","TPE","QIA","SAP","SRT3","SHL","WAF","S92","SMHN","TMV","UTDI","VBK"
 ])];
-
-/* Almanya (XETRA/Frankfurt) günlük veri — Stooq'un CSV indirme uç noktası.
-   Artık ücretsiz ama tek seferlik, captcha ile alınan bir API anahtarı
-   gerektiriyor (ayarlar bölümünde). Sembole otomatik ".DE" soneki eklenir. */
-async function fetchStooqDaily(symbol, apiKey){
-  try{
-    const sym=symbol.toLowerCase().endsWith(".de") ? symbol.toLowerCase() : symbol.toLowerCase()+".de";
-    const keyParam=apiKey ? `&apikey=${encodeURIComponent(apiKey)}` : "";
-    const r=await fetch(`https://stooq.com/q/d/l/?s=${encodeURIComponent(sym)}&i=d${keyParam}`);
-    if(!r.ok) return null;
-    const text=await r.text();
-    if(!text || text[0]==="<") return null; // beklenmeyen bir HTML hata sayfası dönebilir
-    const lines=text.trim().split("\n");
-    if(lines.length<2) return null;
-    const header=lines[0].split(",").map(s=>s.trim().toLowerCase());
-    const iO=header.indexOf("open"), iH=header.indexOf("high"), iL=header.indexOf("low"),
-          iC=header.indexOf("close"), iV=header.indexOf("volume");
-    if(iO<0||iH<0||iL<0||iC<0) return null;
-    const o=[],h=[],l=[],c=[],v=[];
-    for(let i=1;i<lines.length;i++){
-      const cols=lines[i].split(",");
-      if(cols.length<5) continue;
-      const cc=+cols[iC];
-      if(!isFinite(cc) || cc<=0) continue;
-      o.push(+cols[iO]); h.push(+cols[iH]); l.push(+cols[iL]); c.push(cc);
-      v.push(iV>=0 && isFinite(+cols[iV]) ? +cols[iV] : 0);
-    }
-    if(c.length<40) return null;
-    return {o,h,l,c,v};
-  }catch(e){ return null; } /* ağ hatası veya CORS engeli — sessizce atla */
-}
 
 function stockParams(){
   return {
@@ -1475,13 +1441,9 @@ async function scanStocks(){
     key=$("s-key").value.trim();
     if(!key){ $("s-status").innerHTML='<span class="err">FMP API anahtarı gerekli.</span>'; return; }
     store.set("fmpkey", key);
-  } else if(market==="de"){
-    key=$("s-stooq-key").value.trim();
-    if(!key){ $("s-status").innerHTML='<span class="err">Stooq API anahtarı gerekli (ayarlarda "Stooq API anahtarı" alanı).</span>'; return; }
-    store.set("stooqkey", key);
   }
-  const bistWorker=market==="bist" ? $("s-bist-worker").value.trim() : "";
-  if(market==="bist" && bistWorker) store.set("bistworker", bistWorker);
+  const corsWorker=(market==="bist"||market==="de") ? $("s-cors-worker").value.trim() : "";
+  if(corsWorker) store.set("corsworker", corsWorker);
   const syms=$("s-list").value.split(",").map(s=>s.trim().toUpperCase()).filter(Boolean);
   store.set("watchlist:"+market, $("s-list").value);
   if(!syms.length){ $("s-status").innerHTML='<span class="err">Sembol listesi boş.</span>'; return; }
@@ -1525,12 +1487,12 @@ async function scanStocks(){
           sD.v.push(+d.volume||0);
         }
       } else if(market==="bist"){
-        sD=await fetchBistDaily(sym, bistWorker);
+        sD=await fetchBistDaily(sym, corsWorker);
         if(!sD){ errors.push(sym+": veri alınamadı (sembol/CORS?)"); return; }
         price=sD.c[sD.c.length-1];
         ath=Math.max(...sD.h); // ~2 yıllık pencere içindeki zirve — bkz. uyarı kutusu
       } else {
-        sD=await fetchStooqDaily(sym, key);
+        sD=await fetchDeDaily(sym, corsWorker);
         if(!sD){ errors.push(sym+": veri alınamadı (sembol/CORS?)"); return; }
         price=sD.c[sD.c.length-1];
         ath=Math.max(...sD.h);
@@ -2317,8 +2279,7 @@ function clearList(){
 /* ---------- kayıtlı değerleri yükle ---------- */
 (function(){
   const k=store.get("fmpkey",""); if(k) $("s-key").value=k;
-  const sk=store.get("stooqkey",""); if(sk) $("s-stooq-key").value=sk;
-  const bw=store.get("bistworker",""); if(bw) $("s-bist-worker").value=bw;
+  const cw=store.get("corsworker",""); if(cw) $("s-cors-worker").value=cw;
   const lk=store.get("lunarkey",""); if(lk) $("lc-key").value=lk;
   /* "watchlist" (piyasa seçici öncesi, eski tek liste) varsa ABD listesine taşı */
   const legacyW=store.get("watchlist","");
