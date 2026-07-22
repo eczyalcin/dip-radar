@@ -51,6 +51,15 @@ statik haber portalı.
 - `type: "auto"` → önce RSS otomatik keşfi dener. Deneyin ama çoğu Türkiye
   kurum/kuruluş sitesinde RSS otomatik keşfi (standart `<link rel="alternate">`
   etiketi) bulunmuyor; bu durumda kaynak "yapılandırma bekliyor" olarak kalır.
+- `type: "auto-template"` → RSS keşfini dener, olmazsa `scripts/scrape.mjs`
+  içindeki `TEMPLATE_LIBRARY`'deki bilinen site şablonlarını (ör.
+  "duzce-tarzi", "aeo-tarzi") sırayla dener; biri ≥2 anlamlı öğe üretirse
+  otomatik olarak o şablonla yapılandırılmış olur (`matchedTemplate` alanında
+  görülür). 59 eczacı odasının çoğu bu tip ile eklendi çünkü aynı birkaç
+  web sitesi şablonunu paylaşıyorlar. Hiçbiri eşleşmezse "yapılandırma
+  bekliyor" olur ve `type: "html"`'e elle CSS seçicisiyle geçmek gerekir.
+  Yeni bir ortak şablon keşfedildikçe `TEMPLATE_LIBRARY`'ye eklemek, o
+  şablonu kullanan tüm kaynakları otomatik kapsar.
 - `type: "rss"` + `"feedUrl": "https://..."` → adresi bilinen bir RSS/Atom beslemesi.
 - `type: "html"` → CSS seçicili liste taraması, pratikte en güvenilir yöntem:
   ```json
@@ -96,15 +105,21 @@ python3 -m http.server 8080   # veya herhangi bir statik sunucu
 
 ## Bilinen sınırlamalar / yapılacaklar
 
-- Şu an 7 kaynakla (TİTCK duyuru + geri çekme, Sağlık Bakanlığı basın
+- 7 çekirdek kaynak (TİTCK duyuru + geri çekme, Sağlık Bakanlığı basın
   duyuruları, TEB, Düzce Eczacı Odası, Ankara Eczacı Odası, Eczacının Sesi)
-  başlandı; hepsi `type: "html"` ile gerçek sayfa yapısı doğrulanarak
-  eklendi (22.07.2026 tanılaması, bkz. `config/sources.json` `notes` alanları).
-- Kalan eczacı odaları
-  (`https://www.teb.org.tr/content/28/Eczac%C4%B1-Odalar%C4%B1-Listesi`
-  adresindeki liste referans alınarak) tanılama workflow'u ile teker teker
-  aynı desene uyularak eklenebilir.
-- Bazı kaynaklarda (TEB, Sağlık Bakanlığı, Ankara Eczacı Odası) sayfa
-  yapısı gereği ayrı bir tarih alanı ayrıştırılamıyor; bu kaynaklardaki
-  haberler tarama zamanına göre sıralanır (başlıkta tarih bilgisi genelde
-  zaten mevcuttur).
+  `type: "html"` ile gerçek sayfa yapısı doğrulanarak eklendi (22.07.2026
+  tanılaması, bkz. `config/sources.json` `notes` alanları).
+- TEB'in resmi oda listesindeki
+  (`https://www.teb.org.tr/content/28/Eczac%C4%B1-Odalar%C4%B1-Listesi`)
+  kalan 57 eczacı odasının tamamı `type: "auto-template"` ile eklendi.
+  `data/news.json` içindeki `sources` listesinden hangilerinin otomatik
+  eşleştiğini (`matchedTemplate` alanı) ve hangilerinin "yapılandırma
+  bekliyor" kaldığını görebilirsiniz. Eşleşmeyenler için: tanılama
+  workflow'unu o kaynağın `homepage`'iyle çalıştırıp gerçek yapıyı görün,
+  `TEMPLATE_LIBRARY`'ye yeni bir şablon ekleyin (birden fazla oda aynı
+  şablonu kullanıyorsa) ya da o kaynağı `type: "html"` + özel seçicilerle
+  yapılandırın.
+- Bazı kaynaklarda (TEB, Sağlık Bakanlığı, Ankara Eczacı Odası ve
+  auto-template ile eşleşen bazı odalar) sayfa yapısı gereği ayrı bir
+  tarih alanı ayrıştırılamıyor; bu kaynaklardaki haberler tarama zamanına
+  göre sıralanır (başlıkta tarih bilgisi genelde zaten mevcuttur).

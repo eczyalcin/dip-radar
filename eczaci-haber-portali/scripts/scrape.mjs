@@ -201,11 +201,7 @@ async function scrapeRss(feedUrl) {
     .filter((it) => it.title && it.link);
 }
 
-async function scrapeHtmlList(source) {
-  const { listUrl, selectors } = source;
-  const res = await fetchWithTimeout(listUrl);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const html = await res.text();
+function extractListItems(html, listUrl, selectors) {
   const $ = cheerio.load(html);
   const items = [];
 
@@ -227,14 +223,63 @@ async function scrapeHtmlList(source) {
       dateText = dateText.trim() || null;
     }
 
+    let href2 = href;
+    try {
+      href2 = new URL(href, listUrl).toString();
+    } catch {
+      return;
+    }
+
     items.push({
       title: trimmedTitle,
-      link: new URL(href, listUrl).toString(),
+      link: href2,
       publishedAt: dateText ? parseTurkishDate(dateText) : null,
     });
   });
 
   return items;
+}
+
+async function scrapeHtmlList(source) {
+  const res = await fetchWithTimeout(source.listUrl);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = await res.text();
+  return extractListItems(html, source.listUrl, source.selectors);
+}
+
+// Eczacı odalarının çoğu ortak birkaç web sitesi şablonundan birini
+// kullanıyor. Bilinen şablonlardan biriyle eşleşirse (>=2 anlamlı öğe
+// üretirse) o kaynak elle seçici yazmaya gerek kalmadan otomatik
+// yapılandırılmış olur.
+const TEMPLATE_LIBRARY = [
+  {
+    name: 'duzce-tarzi',
+    selectors: { item: '.news article', link: 'a', title: 'a', titleAttr: 'title', date: 'h4 span' },
+  },
+  {
+    name: 'aeo-tarzi',
+    selectors: { item: '#sliderAreaAnnouncementsList li', link: 'a', title: 'a', titleAttr: 'title' },
+  },
+];
+
+async function scrapeAutoTemplate(source) {
+  const res = await fetchWithTimeout(source.homepage);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = await res.text();
+
+  for (const tpl of TEMPLATE_LIBRARY) {
+    let items = [];
+    try {
+      items = extractListItems(html, source.homepage, tpl.selectors);
+    } catch {
+      continue;
+    }
+    if (items.length >= 2) {
+      return { items, matchedTemplate: tpl.name };
+    }
+  }
+
+  return { items: [], matchedTemplate: null };
 }
 
 async function scrapeSource(source) {
@@ -247,6 +292,7 @@ async function scrapeSource(source) {
     error: null,
     itemCount: 0,
     discoveredFeedUrl: null,
+    matchedTemplate: null,
   };
 
   try {
@@ -266,6 +312,22 @@ async function scrapeSource(source) {
       }
       result.discoveredFeedUrl = feedUrl;
       items = await scrapeRss(feedUrl);
+    } else if (source.type === 'auto-template') {
+      const feedUrl = await discoverFeedUrl(source.homepage);
+      if (feedUrl) {
+        result.discoveredFeedUrl = feedUrl;
+        items = await scrapeRss(feedUrl);
+      } else {
+        const { items: tplItems, matchedTemplate } = await scrapeAutoTemplate(source);
+        if (!matchedTemplate) {
+          result.status = 'needs-config';
+          result.error =
+            'Ne RSS ne de bilinen bir site şablonu eşleşti. Bu kaynak için manuel CSS seçici yapılandırması gerekiyor (bkz. README).';
+          return { result, items: [] };
+        }
+        result.matchedTemplate = matchedTemplate;
+        items = tplItems;
+      }
     } else {
       result.status = 'needs-config';
       result.error = 'Kaynak için geçerli bir tarama yöntemi tanımlı değil.';
