@@ -1,5 +1,76 @@
 {
-  "generatedAt": null,
-  "sources": [],
+  "generatedAt": "2026-07-22T07:30:24.879Z",
+  "sources": [
+    {
+      "id": "titck-duyuru",
+      "name": "TİTCK - Duyurular",
+      "category": "resmi-kurumlar",
+      "homepage": "https://www.titck.gov.tr/duyuru",
+      "status": "needs-config",
+      "error": "RSS beslemesi otomatik olarak bulunamadı. Bu kaynak için manuel CSS seçici yapılandırması gerekiyor (bkz. README).",
+      "itemCount": 0,
+      "discoveredFeedUrl": null
+    },
+    {
+      "id": "titck-geri-cekme",
+      "name": "TİTCK - Geri Çekme / Satış Yasağı",
+      "category": "geri-cekme",
+      "homepage": "https://www.titck.gov.tr/duyuru?aramaTipi=geriCekme",
+      "status": "needs-config",
+      "error": "RSS beslemesi otomatik olarak bulunamadı. Bu kaynak için manuel CSS seçici yapılandırması gerekiyor (bkz. README).",
+      "itemCount": 0,
+      "discoveredFeedUrl": null
+    },
+    {
+      "id": "saglik-bakanligi",
+      "name": "T.C. Sağlık Bakanlığı",
+      "category": "resmi-kurumlar",
+      "homepage": "https://www.saglik.gov.tr/",
+      "status": "needs-config",
+      "error": "RSS beslemesi otomatik olarak bulunamadı. Bu kaynak için manuel CSS seçici yapılandırması gerekiyor (bkz. README).",
+      "itemCount": 0,
+      "discoveredFeedUrl": null
+    },
+    {
+      "id": "teb",
+      "name": "Türk Eczacıları Birliği",
+      "category": "teb-odalar",
+      "homepage": "https://www.teb.org.tr/news",
+      "status": "empty",
+      "error": "Kaynak yanıt verdi ancak ayrıştırılabilir haber bulunamadı.",
+      "itemCount": 0,
+      "discoveredFeedUrl": "https://www.teb.org.tr/rss"
+    },
+    {
+      "id": "duzce-eczaci-odasi",
+      "name": "Düzce Eczacı Odası",
+      "category": "duzce",
+      "homepage": "https://www.duzceeo.org/",
+      "status": "needs-config",
+      "error": "RSS beslemesi otomatik olarak bulunamadı. Bu kaynak için manuel CSS seçici yapılandırması gerekiyor (bkz. README).",
+      "itemCount": 0,
+      "discoveredFeedUrl": null
+    },
+    {
+      "id": "ankara-eczaci-odasi",
+      "name": "Ankara Eczacı Odası",
+      "category": "teb-odalar",
+      "homepage": "https://www.aeo.org.tr/",
+      "status": "needs-config",
+      "error": "RSS beslemesi otomatik olarak bulunamadı. Bu kaynak için manuel CSS seçici yapılandırması gerekiyor (bkz. README).",
+      "itemCount": 0,
+      "discoveredFeedUrl": null
+    },
+    {
+      "id": "eczacinin-sesi",
+      "name": "Eczacının Sesi",
+      "category": "sektor",
+      "homepage": "https://www.eczacininsesi.com",
+      "status": "needs-config",
+      "error": "RSS beslemesi otomatik olarak bulunamadı. Bu kaynak için manuel CSS seçici yapılandırması gerekiyor (bkz. README).",
+      "itemCount": 0,
+      "discoveredFeedUrl": null
+    }
+  ],
   "items": []
 }
