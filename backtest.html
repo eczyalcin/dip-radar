@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0C1017">
+<title>Dip Radar — Backtest verisi indir</title>
+<style>
+  :root{--bg:#0C1017;--surface:#141A24;--line:#26303F;--text:#E9EDF3;--muted:#8B96A8;--amber:#E3B341;--green:#3ECF8E;--red:#FF5C48}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;padding:env(safe-area-inset-top) 14px 40px}
+  header{padding:18px 2px 10px}
+  h1{font-size:20px;font-weight:800}h1 span{color:var(--amber)}
+  p.sub{color:var(--muted);font-size:12.5px;margin-top:4px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .warnbox{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--muted);margin-bottom:12px}
+  .row{display:flex;gap:10px;margin-bottom:10px}
+  .field{flex:1;display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:11.5px;color:var(--muted)}
+  .field input{background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px;width:100%}
+  .btns{display:flex;gap:10px;margin-bottom:12px}
+  button{border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:800;cursor:pointer}
+  button.primary{flex:1;background:var(--amber);color:#161001}
+  button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--muted);font-weight:700}
+  button:disabled{opacity:.5}
+  .progress{height:6px;background:#1B2331;border-radius:99px;overflow:hidden;margin-bottom:6px;display:none}
+  .progress.on{display:block}
+  .progress i{display:block;height:100%;width:0%;background:var(--amber);transition:width .2s}
+  #status{font-size:12.5px;color:var(--muted);min-height:18px;margin-bottom:8px}
+  #log{background:#0a0e14;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--muted);white-space:pre-wrap;max-height:44vh;overflow:auto}
+  b.g{color:var(--green)}b.a{color:var(--amber)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Dip <span>Radar</span> · Backtest verisi indir</h1>
+  <p class="sub">Binance'ten 5m + 15m mumlarını çekip tek bir JSON olarak indirir. Bu dosyayı Claude'a gönder; parametre taramasını (zaman dilimi × lookback × düşüş%) o çalıştırır.</p>
+</header>
+
+<div class="warnbox">
+  Bu araç yalnızca <b>veri indirir</b> — hiçbir işlem/analiz yapmaz. Binance'e tarayıcıdan doğrudan erişir (uygulamanın kendisi gibi). Çok sayıda istek yapacağı için <b>ekranı açık tut</b>; arka plana geçersen (başka uygulama/ekran kilidi) iOS duraklatır, geri dönünce kaldığı yerden devam etmez — o durumda tekrar başlat. Yarıda durdurursan bile o ana kadar inen veri "İndir" ile alınabilir.
+</div>
+
+<div class="card">
+  <div class="row">
+    <div class="field"><label>Coin sayısı (hacme göre en likit)</label><input type="number" id="coins" value="20" min="3" max="60"></div>
+    <div class="field"><label>Geçmiş (ay)</label><input type="number" id="months" value="3" min="1" max="12" step="0.5"></div>
+  </div>
+  <div class="btns">
+    <button class="primary" id="startbtn" onclick="run()">Veriyi indir</button>
+    <button class="ghost" id="stopbtn" onclick="stopFlag=true" disabled>Durdur</button>
+    <button class="ghost" id="exportbtn" onclick="exportData()" disabled>İndir (JSON)</button>
+  </div>
+  <div class="progress" id="prog"><i id="progbar"></i></div>
+  <div id="status"></div>
+</div>
+
+<pre id="log"></pre>
+
+<script>
+const $=id=>document.getElementById(id);
+const SPOT="https://api.binance.com";
+const TFS=["5m","15m"];
+const TF_MS={"5m":300000,"15m":900000};
+const STABLES=new Set(["USDCUSDT","FDUSDUSDT","TUSDUSDT","USDPUSDT","EURUSDT","DAIUSDT","BUSDUSDT","USDEUSDT","AEURUSDT","EURIUSDT","XUSDUSDT","USD1USDT"]);
+let stopFlag=false, dataset=null, wakeLock=null;
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function log(msg){ const el=$("log"); el.textContent += (el.textContent?"\n":"")+msg; el.scrollTop=el.scrollHeight; }
+function setProgress(f){ $("progbar").style.width=(f*100).toFixed(1)+"%"; }
+
+async function wake(){ try{ if("wakeLock" in navigator){ wakeLock=await navigator.wakeLock.request("screen"); } }catch(e){} }
+function unwake(){ try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(e){} }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible" && wakeLock===null && $("stopbtn").disabled===false) wake(); });
+
+/* hız-sınırı (429/418) ve geçici ağ hatalarına dayanıklı fetch */
+async function fetchJson(url, tries=5){
+  for(let i=0;i<tries;i++){
+    try{
+      const r=await fetch(url);
+      if(r.status===429||r.status===418){
+        const ra=parseInt(r.headers.get("Retry-After")||"3",10);
+        log("  · hız sınırı, "+(ra||3)+"s bekleniyor…");
+        await sleep((ra||3)*1000); continue;
+      }
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return await r.json();
+    }catch(e){ if(i===tries-1) throw e; await sleep(700*(i+1)); }
+  }
+}
+
+async function pool(items, limit, worker){
+  let idx=0;
+  const runners=Array.from({length:Math.min(limit,items.length)}, async ()=>{
+    while(idx<items.length && !stopFlag){ const my=idx++; await worker(items[my]); }
+  });
+  await Promise.all(runners);
+}
+
+async function getUniverse(topN){
+  const t=await fetchJson(SPOT+"/api/v3/ticker/24hr");
+  return t.filter(x=>x.symbol.endsWith("USDT"))
+    .filter(x=>!STABLES.has(x.symbol))
+    .filter(x=>!/(UP|DOWN|BULL|BEAR)USDT$/.test(x.symbol))
+    .filter(x=>parseFloat(x.quoteVolume)>0)
+    .sort((a,b)=>parseFloat(b.quoteVolume)-parseFloat(a.quoteVolume))
+    .slice(0,topN).map(x=>x.symbol);
+}
+
+/* startTime'dan bugüne kadar ileri doğru sayfalayarak tüm mumları çeker.
+   Kompakt biçim: [openTime, o, h, l, c, v, takerBuyBase] */
+async function fetchSeries(sym, tf, startTime){
+  const out=[]; const step=TF_MS[tf]; const now=Date.now();
+  let cursor=startTime, pages=0; const maxPages=500;
+  while(cursor<now && pages<maxPages && !stopFlag){
+    const kk=await fetchJson(SPOT+"/api/v3/klines?symbol="+sym+"&interval="+tf+"&startTime="+cursor+"&limit=1000");
+    if(!Array.isArray(kk)||!kk.length) break;
+    for(const k of kk){ out.push([k[0],+k[1],+k[2],+k[3],+k[4],+k[5],+k[9]]); }
+    const last=kk[kk.length-1][0];
+    pages++;
+    if(kk.length<1000) break;
+    cursor=last+step;
+    await sleep(110);
+  }
+  return out;
+}
+
+async function run(){
+  stopFlag=false;
+  const topN=Math.max(3, Math.min(60, parseInt($("coins").value)||20));
+  const months=Math.max(1, Math.min(12, parseFloat($("months").value)||3));
+  const startTime=Date.now()-Math.round(months*30*24*3600*1000);
+
+  $("startbtn").disabled=true; $("stopbtn").disabled=false; $("exportbtn").disabled=true;
+  $("prog").classList.add("on"); setProgress(0);
+  $("log").textContent=""; $("status").textContent="Sembol evreni alınıyor…";
+  await wake();
+
+  let universe;
+  try{ universe=await getUniverse(topN); }
+  catch(e){ log("Evren alınamadı: "+e.message+" — Binance'e erişilemedi (bölge/ağ?)."); finishUI(); return; }
+  if(!universe.length){ log("Uygun sembol bulunamadı."); finishUI(); return; }
+  log("Evren ("+universe.length+" coin): "+universe.join(", "));
+  log("Geçmiş: son "+months+" ay · zaman dilimleri: "+TFS.join(", "));
+  log("——");
+
+  dataset={ source:"dip-radar-backtest-downloader", version:1, exported_at:new Date().toISOString(),
+            months, timeframes:TFS, basket:universe, candles:{} };
+  TFS.forEach(tf=>dataset.candles[tf]={});
+
+  let doneUnits=0; const totalUnits=universe.length*TFS.length; let totalCandles=0;
+  await pool(universe, 3, async (sym)=>{
+    for(const tf of TFS){
+      if(stopFlag) return;
+      try{
+        const s=await fetchSeries(sym, tf, startTime);
+        dataset.candles[tf][sym]=s;
+        totalCandles+=s.length;
+        log(sym+" "+tf+": "+s.length+" mum");
+      }catch(e){ log(sym+" "+tf+": HATA "+e.message); }
+      doneUnits++;
+      setProgress(doneUnits/totalUnits);
+      $("status").textContent=doneUnits+"/"+totalUnits+" seri · toplam "+totalCandles.toLocaleString("tr-TR")+" mum";
+    }
+  });
+
+  log("——");
+  const nCoins=new Set(Object.keys(dataset.candles["5m"]).concat(Object.keys(dataset.candles["15m"]))).size;
+  log((stopFlag?"DURDURULDU":"TAMAMLANDI")+" · "+nCoins+" coin · "+totalCandles.toLocaleString("tr-TR")+" mum indirildi.");
+  log(stopFlag ? "Kısmi veri de 'İndir' ile alınabilir." : "Şimdi 'İndir'e bas ve dosyayı Claude'a gönder.");
+  $("exportbtn").disabled=false;
+  finishUI();
+}
+
+function finishUI(){
+  $("startbtn").disabled=false; $("stopbtn").disabled=true;
+  $("status").textContent = dataset ? "Hazır — 'İndir'e bas." : "";
+  unwake();
+}
+
+async function exportData(){
+  if(!dataset){ alert("Önce veri indir."); return; }
+  $("status").textContent="Dosya hazırlanıyor…";
+  const json=JSON.stringify(dataset);
+  let blob, fname="dipradar_backtest_"+new Date().toISOString().slice(0,10);
+  try{
+    const stream=new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"));
+    blob=await new Response(stream).blob(); fname+=".json.gz";
+  }catch(e){ blob=new Blob([json],{type:"application/json"}); fname+=".json"; }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=fname; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  $("status").textContent="İndirildi: "+fname+" ("+(blob.size/1048576).toFixed(1)+" MB) — bu dosyayı Claude'a gönder.";
+}
+</script>
+</body>
+</html>
