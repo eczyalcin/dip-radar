@@ -33,6 +33,9 @@ export default {
       "query2.finance.yahoo.com",
       "www.getmidas.com",
       "www.isyatirim.com.tr",
+      "www.coindesk.com",
+      "cointelegraph.com",
+      "decrypt.co",
     ];
     if (!allowedHosts.includes(targetUrl.hostname)) {
       return new Response(

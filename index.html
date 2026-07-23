@@ -134,16 +134,6 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 <!-- ================= KRİPTO ================= -->
 <div class="panel active" id="panel-crypto">
 
-  <div class="warnbox">
-    <b>LunarCrush (sosyal veri) — deneysel:</b> Galaxy Score, AltRank ve duyarlılık verisi için kendi LunarCrush API anahtarını gir (ücretli plan gerekir). Anahtar tüm sekmelerde (Dip tarama rozetleri, Short sinyal rozetleri, Coin analiz, Sosyal tarama) paylaşılır. Tarayıcıdan doğrudan erişimin (CORS) çalışıp çalışmayacağı doğrulanmadı.
-  </div>
-  <details class="settings">
-    <summary>LunarCrush anahtarı</summary>
-    <div class="settings-body">
-      <div class="field full"><label>LunarCrush API anahtarı</label><input type="password" id="lc-key" placeholder="Bearer anahtarı" onchange="store.set('lunarkey', this.value)"></div>
-    </div>
-  </details>
-
   <details class="settings">
     <summary>Tarama ayarları</summary>
     <div class="settings-body">
@@ -333,31 +323,27 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div id="an-result"></div>
 
   <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
-  <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Sosyal <span style="color:var(--amber)">(LunarCrush) tarama</span></h1>
-  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Galaxy Score / AltRank / duyarlılık / sosyal baskınlığa göre sıralı coin listesi</p>
+  <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Sosyal <span style="color:var(--amber)">ve haber tarama</span></h1>
+  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">CoinDesk, Cointelegraph, Decrypt haberleri + CoinGecko topluluk duyarlılığı · anahtar-kelime sezgiseliyle kısa/uzun vade puanı</p>
+
+  <div class="warnbox">
+    <b>Önemli — bu bir AI yorumu değil:</b> Puan ve yorum, taze haber başlıklarındaki olumlu/olumsuz kelimeleri sayan kaba, mekanik bir sezgiselden üretiliyor; gerçek bir haberi okuyup anlayan bir yapay zeka değil. Yanlış/yanıltıcı olabilir, yatırım tavsiyesi değildir. Anahtar gerekmez ama haber siteleri ve CoinGecko'ya tarayıcıdan doğrudan erişim (CORS) doğrulanmadı — BIST/Almanya'daki gibi genel proxy'ler denenir, en güvenilir sonuç için Hisse sekmesindeki kendi CORS Worker adresini burada da kullanabilirsin.
+  </div>
 
   <div class="settings-body" style="padding:0 0 12px">
-    <div class="field"><label>Sırala</label>
-      <select id="lc-sort" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
-        <option value="galaxy_score">Galaxy Score</option>
-        <option value="alt_rank">AltRank (düşük=iyi)</option>
-        <option value="sentiment">Duyarlılık</option>
-        <option value="social_dominance">Sosyal baskınlık</option>
-        <option value="percent_change_24h">24s % değişim</option>
-      </select>
-    </div>
-    <div class="field"><label>Sonuç sayısı</label><input type="number" id="lc-limit" value="50" min="10" max="200"></div>
+    <div class="field full"><label>Coin(ler) (virgülle ayır; ör. BTC, ETH)</label><input type="text" id="lc-sym" placeholder="BTC, ETH" autocapitalize="characters"></div>
   </div>
 
   <div class="scanbar">
-    <button class="primary" id="lc-scanbtn" onclick="scanSocial()">Sosyal taramayı başlat</button>
+    <button class="primary" id="lc-scanbtn" onclick="scanSocial()">Sosyal ve haber taramasını başlat</button>
+    <button class="ghost" id="lc-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
     <button class="ghost" id="lc-clearbtn" onclick="clearSocial()" style="display:none">Temizle</button>
   </div>
 
   <div class="progress" id="lc-prog"><i id="lc-progbar"></i></div>
   <div class="status" id="lc-status"></div>
   <div id="lc-results"></div>
-  <div class="empty" id="lc-empty">LunarCrush API anahtarı gir ve taramayı başlat.</div>
+  <div class="empty" id="lc-empty">Bir coin gir (ör. BTC) ve taramayı başlat.</div>
 </div>
 
 <!-- ================= HİSSE ================= -->
@@ -845,121 +831,207 @@ document.addEventListener("visibilitychange", ()=>{
   }
 });
 
-/* ---------- LunarCrush (sosyal veri) ----------
-   Tek doğrulanmış uç nokta kullanılır: GET /public/coins/list/v2 (tüm coinler,
-   galaxy_score/alt_rank/sentiment/social_dominance dahil). Liste bir kez çekilip
-   5 dakika önbelleğe alınır; Coin analiz, Dip/Short rozetleri ve Sosyal tarama
-   sekmesi hepsi bu tek önbellekten beslenir — ekstra sembol-başına istek yok. */
-const LC_BASE="https://lunarcrush.com/api4";
-let lcListCache=null; // {ts, bySymbol:Map, rows:[]} veya bekleyen Promise
+/* ---------- Sosyal ve haber tarama ----------
+   LunarCrush (ücretli) yerine tamamen ücretsiz/anahtarsız kaynaklar:
+   CoinDesk/Cointelegraph/Decrypt RSS beslemeleri (haber) + CoinGecko'nun
+   kendi topluluk duyarlılığı alanı (sentiment_votes_up_percentage) ve
+   fiyat momentumu. Puan, gerçek bir AI yorumu DEĞİL — başlıklardaki
+   olumlu/olumsuz kelimeleri sayan kaba bir sezgiseldir (bkz. uyarı kutusu). */
+const RSS_FEEDS=[
+  {name:"CoinDesk", url:"https://www.coindesk.com/arc/outboundfeeds/rss/"},
+  {name:"Cointelegraph", url:"https://cointelegraph.com/rss"},
+  {name:"Decrypt", url:"https://decrypt.co/feed"}
+];
 
-function lcKey(){ return $("lc-key").value.trim(); }
+function parseRssItems(xmlText, sourceName){
+  try{
+    const doc=new DOMParser().parseFromString(xmlText, "text/xml");
+    if(doc.querySelector("parsererror")) return [];
+    return [...doc.querySelectorAll("item")].map(item=>({
+      title: (item.querySelector("title")?.textContent || "").trim(),
+      link: (item.querySelector("link")?.textContent || "").trim(),
+      pubDate: (item.querySelector("pubDate")?.textContent || "").trim(),
+      source: sourceName
+    })).filter(x=>x.title);
+  }catch(e){ return []; }
+}
 
-async function lcGetList(){
-  if(!lcKey()) return null;
-  if(lcListCache && !(lcListCache instanceof Promise) && Date.now()-lcListCache.ts<5*60*1000) return lcListCache;
-  if(lcListCache instanceof Promise) return lcListCache;
-  const p=(async()=>{
+/* İlgili coine ait haberleri üç RSS beslemesinden çekip başlıkta sembol veya
+   coin adı geçenleri filtreler. Bir besleme başarısız olursa (CORS/ağ)
+   sessizce atlanır, diğerleriyle devam edilir. */
+async function fetchNewsForCoin(symBase, coinName, ownWorker){
+  const needles=[symBase.toLowerCase()];
+  if(coinName) needles.push(coinName.toLowerCase());
+  const results=await Promise.all(RSS_FEEDS.map(async feed=>{
     try{
-      const r=await fetch(`${LC_BASE}/public/coins/list/v2?sort=market_cap_rank&limit=2000`,
-        { headers:{ "Authorization":`Bearer ${lcKey()}` } });
-      if(!r.ok) return null;
-      const j=await r.json();
-      if(!Array.isArray(j.data)) return null;
-      const bySymbol=new Map();
-      for(const row of j.data){ if(row.symbol) bySymbol.set(String(row.symbol).toUpperCase(), row); }
-      return {ts:Date.now(), bySymbol, rows:j.data};
-    }catch(e){ return null; } /* ağ hatası veya CORS engeli — sessizce atla */
-  })();
-  lcListCache=p;
-  const result=await p;
-  lcListCache=result; // sonucu (null olsa bile) sakla; null ise bir sonraki çağrıda tekrar denenir
-  if(result===null) lcListCache=null;
-  return result;
-}
-
-async function lcLookup(baseSymbol){
-  const list=await lcGetList();
-  if(!list) return null;
-  return list.bySymbol.get(baseSymbol.toUpperCase()) || null;
-}
-
-/* dip/short kartlarına, ilk render'dan sonra sosyal rozet ekler (varsa) */
-async function enrichSocialBadges(containerId){
-  if(!lcKey()) return;
-  const list=await lcGetList();
-  if(!list) return;
-  const box=$(containerId);
-  if(!box) return;
-  box.querySelectorAll(".card[data-symbol]").forEach(card=>{
-    if(card.querySelector(".lc-badge")) return;
-    const base=card.dataset.symbol.replace("/USDT","").replace(/USDT$/,"").toUpperCase();
-    const row=list.bySymbol.get(base);
-    if(!row) return;
-    const badges=card.querySelector(".badges");
-    if(!badges) return;
-    const span=document.createElement("span");
-    span.className="badge lc-badge on-div";
-    span.textContent=`GS ${row.galaxy_score!=null?row.galaxy_score:'-'} · #${row.alt_rank!=null?row.alt_rank:'-'}`;
-    span.title="LunarCrush Galaxy Score · AltRank";
-    badges.appendChild(span);
+      const {r}=await fetchViaCorsProxy(feed.url, ownWorker);
+      if(!r) return [];
+      const text=await r.text();
+      return parseRssItems(text, feed.name);
+    }catch(e){ return []; }
+  }));
+  const all=results.flat();
+  const matched=all.filter(it=>{
+    const t=it.title.toLowerCase();
+    return needles.some(n=>n && t.includes(n));
   });
+  matched.sort((a,b)=> new Date(b.pubDate)-new Date(a.pubDate));
+  return matched.slice(0,20);
 }
 
-function renderSocialCard(r){
-  const sent=r.sentiment;
-  const sentColor = sent==null?"":(sent>=65?"var(--green)":(sent<=35?"var(--red)":"var(--muted)"));
-  const chg=r.percent_change_24h;
+/* CoinGecko: coin id'yi sembolden bulup topluluk duyarlılığı + fiyat
+   momentumunu çeker. Anahtarsız, doğrudan erişilebilir (sektör momentumu
+   özelliğinde de kullanılan aynı arama deseni). */
+async function fetchCoinGeckoSocial(symBase){
+  try{
+    const sr=await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(symBase)}`);
+    if(!sr.ok) return null;
+    const sj=await sr.json();
+    if(!sj.coins||!sj.coins.length) return null;
+    const exact=sj.coins.find(c=>c.symbol && c.symbol.toUpperCase()===symBase.toUpperCase());
+    const id=(exact||sj.coins[0]).id;
+    const name=(exact||sj.coins[0]).name;
+    const cr=await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&market_data=true&community_data=true&developer_data=false&sparkline=false`);
+    if(!cr.ok) return {id, name, sentimentUp:null, chg24h:null, chg30d:null};
+    const cj=await cr.json();
+    const md=cj.market_data||{};
+    return {
+      id, name,
+      sentimentUp: cj.sentiment_votes_up_percentage!=null ? cj.sentiment_votes_up_percentage : null,
+      chg24h: md.price_change_percentage_24h!=null ? md.price_change_percentage_24h : null,
+      chg30d: md.price_change_percentage_30d!=null ? md.price_change_percentage_30d : null
+    };
+  }catch(e){ return null; } /* ağ hatası veya CORS engeli — sessizce atla */
+}
+
+/* kaba anahtar-kelime sezgiseli — gerçek bir AI okuma/anlama değil */
+/* dikkat: bir kökün (ör. "surge") çekimli hali (ör. "surges") ayrıca listeye
+   eklenmez — zaten alt dize olarak eşleşir; ikisini birden eklemek aynı
+   kelimeyi iki kez saymaya yol açar (test sırasında yakalandı ve düzeltildi) */
+const POS_WORDS=["surge","soar","rally","rallies","jump","bullish","record high","all-time high","breakout","spike","climb","outperform","upgrade","buy rating","gain"];
+const NEG_WORDS=["crash","plunge","tumble","selloff","sell-off","bearish","dump","slump","decline","liquidation","panic","downgrade","warns","warning","drop"];
+const STRUCT_POS_WORDS=["adoption","partner","institutional","integration","integrates","mainnet","expan","investment","backed by","approv","listing","lists on"];
+const STRUCT_NEG_WORDS=["hack","exploit","lawsuit","sues","sued","charges","ban","delist","fraud","scam","investigation","probe","bankruptcy","insolven"];
+
+function countHits(text, words){
+  let n=0;
+  for(const w of words){ if(text.includes(w)) n++; }
+  return n;
+}
+function scoreHeadlines(headlines){
+  let pos=0,neg=0,structPos=0,structNeg=0;
+  for(const h of headlines){
+    const t=h.title.toLowerCase();
+    pos+=countHits(t,POS_WORDS);
+    neg+=countHits(t,NEG_WORDS);
+    structPos+=countHits(t,STRUCT_POS_WORDS);
+    structNeg+=countHits(t,STRUCT_NEG_WORDS);
+  }
+  return {pos,neg,structPos,structNeg};
+}
+
+function clampScore(x){ return Math.max(-5, Math.min(5, Math.round(x))); }
+
+/* kısa vade: taze başlık tonu + 24s fiyat + anlık topluluk duyarlılığı
+   uzun vade: yapısal (adoption/hack/dava gibi) başlık sinyalleri + 30g fiyat + duyarlılık */
+function computeSocialScores(hs, social){
+  let shortRaw = Math.min(3,hs.pos) - Math.min(3,hs.neg);
+  if(social && social.chg24h!=null){ if(social.chg24h>=5) shortRaw+=1; else if(social.chg24h<=-5) shortRaw-=1; }
+  if(social && social.sentimentUp!=null){ if(social.sentimentUp>=60) shortRaw+=1; else if(social.sentimentUp<=40) shortRaw-=1; }
+
+  let longRaw = Math.min(3,hs.structPos) - Math.min(3,hs.structNeg);
+  if(social && social.sentimentUp!=null){ if(social.sentimentUp>=65) longRaw+=1; else if(social.sentimentUp<=35) longRaw-=1; }
+  if(social && social.chg30d!=null){ if(social.chg30d>=15) longRaw+=1; else if(social.chg30d<=-15) longRaw-=1; }
+
+  return {shortScore:clampScore(shortRaw), longScore:clampScore(longRaw)};
+}
+
+function buildSocialComment(symbol, hs, social, scores, newsCount){
+  const parts=[];
+  parts.push(`${symbol}: son ${newsCount} haberde ${hs.pos} olumlu / ${hs.neg} olumsuz kısa vadeli ton, ${hs.structPos} olumlu / ${hs.structNeg} olumsuz yapısal (uzun vadeli) sinyal tespit edildi.`);
+  if(social && social.sentimentUp!=null) parts.push(`CoinGecko topluluk duyarlılığı %${social.sentimentUp.toFixed(0)} olumlu.`);
+  const shortLabel = scores.shortScore>=2?"pozitif":(scores.shortScore<=-2?"negatif":"nötr'e yakın");
+  const longLabel = scores.longScore>=2?"pozitif":(scores.longScore<=-2?"negatif":"nötr'e yakın");
+  parts.push(`Kısa vadede ${shortLabel} (${scores.shortScore>0?'+':''}${scores.shortScore}), uzun vadede ${longLabel} (${scores.longScore>0?'+':''}${scores.longScore}) görünüyor.`);
+  return parts.join(" ");
+}
+
+function scoreColor(s){ return s>=2?"var(--green)":(s<=-2?"var(--red)":"var(--muted)"); }
+
+function renderSocialNewsCard(r){
+  const {symbol, scores, comment, headlines, social}=r;
+  const newsHtml = headlines.length
+    ? headlines.slice(0,8).map(h=>{
+        const safeUrl=/^https?:\/\//i.test(h.link||"") ? h.link : null;
+        const titleHtml=escapeHtml(h.title);
+        const link = safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener" style="color:var(--blue)">${titleHtml}</a>` : titleHtml;
+        return `<div class="detail" style="margin:2px 0">${link} <span style="color:var(--muted)">· ${escapeHtml(h.source)}</span></div>`;
+      }).join("")
+    : `<div class="detail" style="color:var(--muted)">İlgili haber bulunamadı (kaynak erişimi engellenmiş olabilir veya bu coin için taze haber yok).</div>`;
   return `<div class="card">
     <div class="card-top">
-      <div class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git">${escapeHtml(r.symbol)}</div>
-      <div class="price mono">${fmtPrice(r.price)} USD</div>
+      <div class="sym linkable" data-symbol="${escapeHtml(symbol)}" title="Coin analiz'e git">${escapeHtml(symbol)}${social&&social.name?` <span style="font-size:12px;color:var(--muted)">${escapeHtml(social.name)}</span>`:''}</div>
     </div>
-    <div class="badges">
-      <span class="badge on-div">Galaxy Score ${r.galaxy_score!=null?r.galaxy_score:'-'}</span>
-      <span class="badge on-cap">AltRank #${r.alt_rank!=null?r.alt_rank:'-'}</span>
-      <span class="badge" style="${sentColor?`color:${sentColor};border-color:${sentColor}`:''}">Duyarlılık ${sent!=null?'%'+sent:'-'}</span>
-      <span class="badge on-rev">Sosyal baskınlık ${r.social_dominance!=null?'%'+r.social_dominance.toFixed(2):'-'}</span>
+    <div style="display:flex;gap:10px;margin:8px 0 12px">
+      <div style="flex:1;text-align:center;background:var(--bg);border:1px solid ${scoreColor(scores.shortScore)};border-radius:10px;padding:10px">
+        <div style="font-size:22px;font-weight:800;color:${scoreColor(scores.shortScore)}">${scores.shortScore>0?'+':''}${scores.shortScore}</div><div style="font-size:11px;color:var(--muted)">KISA VADE</div></div>
+      <div style="flex:1;text-align:center;background:var(--bg);border:1px solid ${scoreColor(scores.longScore)};border-radius:10px;padding:10px">
+        <div style="font-size:22px;font-weight:800;color:${scoreColor(scores.longScore)}">${scores.longScore>0?'+':''}${scores.longScore}</div><div style="font-size:11px;color:var(--muted)">UZUN VADE</div></div>
     </div>
-    <div class="detail">24s: fiyat <b>${chg!=null?(chg>=0?'+':'')+chg.toFixed(2)+'%':'-'}</b> · etkileşim <b>${r.interactions_24h!=null?r.interactions_24h.toLocaleString('tr-TR'):'-'}</b></div>
+    <div class="detail" style="margin-bottom:10px">${escapeHtml(comment)}</div>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Son haberler</div>${newsHtml}</div>
   </div>`;
 }
 
 async function scanSocial(){
-  const key=lcKey();
-  if(!key){ $("lc-status").innerHTML='<span class="err">LunarCrush API anahtarı gerekli.</span>'; return; }
-  store.set("lunarkey", key);
-  const sortMetric=$("lc-sort").value;
-  const limit=parseInt($("lc-limit").value)||50;
-  const btn=$("lc-scanbtn"); btn.disabled=true;
-  $("lc-prog").classList.add("on"); $("lc-progbar").style.width="30%";
+  const symbols=[...new Set($("lc-sym").value.split(",")
+    .map(s=>s.trim().toUpperCase())
+    .filter(Boolean))];
+  if(!symbols.length){ $("lc-status").innerHTML='<span class="err">En az bir coin gir (ör. BTC).</span>'; return; }
+
+  const ownWorker=$("s-cors-worker").value.trim();
+  abortFlag=false;
+  beginScan();
+  const btn=$("lc-scanbtn"), stop=$("lc-stopbtn");
+  btn.disabled=true; stop.style.display="block";
+  $("lc-prog").classList.add("on"); $("lc-progbar").style.width="0%";
   $("lc-results").innerHTML=""; $("lc-empty").classList.remove("on");
   $("lc-clearbtn").style.display="none";
-  $("lc-status").textContent="LunarCrush'tan veri alınıyor…";
+  const status=$("lc-status");
+  status.textContent=`0/${symbols.length} coin taranıyor…`;
 
-  const list=await lcGetList();
-  $("lc-progbar").style.width="100%";
-
-  if(!list){
-    $("lc-status").innerHTML='<span class="err">Veri alınamadı. Anahtar/plan geçersiz olabilir veya tarayıcı isteği engellemiş olabilir (CORS).</span>';
-  } else {
-    const asc = sortMetric==="alt_rank"; // AltRank'ta düşük daha iyi
-    const sorted=list.rows
-      .filter(r=>r[sortMetric]!=null)
-      .sort((a,b)=> asc ? a[sortMetric]-b[sortMetric] : b[sortMetric]-a[sortMetric])
-      .slice(0, limit);
-    if(!sorted.length){
-      $("lc-empty").textContent="Bu sıralama kriterinde veri bulunamadı. Başka bir sıralama dene.";
-      $("lc-empty").classList.add("on");
-      $("lc-status").textContent="Sonuç yok.";
-    } else {
-      $("lc-results").innerHTML=sorted.map(renderSocialCard).join("");
-      $("lc-status").textContent=`${sorted.length} coin listelendi · sıralama: ${sortMetric}`;
-      $("lc-clearbtn").style.display="block";
+  const cards=[]; const errs=[];
+  let done=0;
+  await pool(symbols, 3, async (sym)=>{
+    try{
+      const social=await fetchCoinGeckoSocial(sym);
+      const headlines=await fetchNewsForCoin(sym, social?social.name:null, ownWorker);
+      const hs=scoreHeadlines(headlines);
+      const scores=computeSocialScores(hs, social);
+      const comment=buildSocialComment(sym, hs, social, scores, headlines.length);
+      cards.push({symbol:sym, social, headlines, scores, comment});
+    }catch(e){ errs.push(sym+": "+e.message); }
+    finally{
+      done++;
+      $("lc-progbar").style.width=(done/symbols.length*100).toFixed(1)+"%";
+      status.textContent=`${sym} · ${done}/${symbols.length}`;
     }
+  });
+
+  if(!cards.length){
+    $("lc-empty").classList.add("on");
+    status.textContent="Sonuç yok.";
+  } else {
+    $("lc-results").innerHTML=cards.map(renderSocialNewsCard).join("");
+    $("lc-clearbtn").style.display="block";
+    status.textContent=abortFlag ? "Tarama durduruldu." : `${cards.length} coin analiz edildi.`;
   }
-  btn.disabled=false;
+  if(errs.length){
+    $("lc-results").innerHTML += '<div class="warnbox">'+errs.map(e=>"• "+escapeHtml(e)).join("<br>")+"</div>";
+  }
+  btn.disabled=false; stop.style.display="none";
   $("lc-prog").classList.remove("on");
+  endScan();
 }
 
 /* ---------- kart çizimi ---------- */
@@ -1026,7 +1098,6 @@ function applyFilter(prefix){
   const filtered=data.list.filter(r=>r.sig.score>=min);
   const shown=filtered.slice(0, shownCount[prefix]);
   box.innerHTML=shown.map(r=>renderCard(r,data.currency,crypto)).join("");
-  if(crypto) enrichSocialBadges(prefix+"-results");
   const remaining=filtered.length-shown.length;
   moreBtn.style.display=remaining>0?"block":"none";
   moreBtn.textContent=`Daha fazla göster (+${remaining})`;
@@ -1872,7 +1943,6 @@ function applyFilterShort(){
   const filtered=data.list.filter(r=>r.score>=min);
   const shown=filtered.slice(0, shownCount.sh);
   box.innerHTML=shown.map(renderShortCard).join("");
-  enrichSocialBadges("sh-results");
   const remaining=filtered.length-shown.length;
   moreBtn.style.display=remaining>0?"block":"none";
   moreBtn.textContent=`Daha fazla göster (+${remaining})`;
@@ -2101,9 +2171,6 @@ async function analyzeOne(base, tf, sectorCache){
     if(!sectorCache.has(base)) sectorCache.set(base, fetchSectorMomentum(base));
     const sector=await sectorCache.get(base);
 
-    /* LunarCrush: anahtar yoksa veya coin listede yoksa null döner, skora katkı vermez */
-    const social=lcKey() ? await lcLookup(base) : null;
-
     /* FMP kripto haberleri: sadece bağlam amaçlı, skora katkı vermez */
     const news=await newsFor(base, 3);
 
@@ -2157,15 +2224,6 @@ async function analyzeOne(base, tf, sectorCache){
     let secL=0,secS=0;
     if(sector && sector.momentum!=null){ if(sector.momentum>0) secL=10; else secS=10; }
     L+=secL;S+=secS; rows.push(scoreBar("Sektör momentumu",secL,secS));
-    // 9) Sosyal (LunarCrush): yüksek Galaxy Score + pozitif duyarlılık = long eğilimi, tersi short (max 10)
-    let socL=0,socS=0;
-    if(social && social.galaxy_score!=null && social.sentiment!=null){
-      if(social.galaxy_score>=65 && social.sentiment>=60){ socL=10; }
-      else if(social.galaxy_score<=35 && social.sentiment<=40){ socS=10; }
-      else if(social.sentiment>=60){ socL=5; }
-      else if(social.sentiment<=40){ socS=5; }
-    }
-    L+=socL;S+=socS; rows.push(scoreBar("Sosyal (LunarCrush)",socL,socS));
     // funding: aşırı pozitif = kalabalık long = short'a hafif katkı (bilgi + max 5)
     if(funding!=null && funding>0.0005){ S+=5; rows.push(scoreBar("Funding aşırı (+long kalabalık)",0,5)); }
     else if(funding!=null && funding<-0.0005){ L+=5; rows.push(scoreBar("Funding aşırı (−short kalabalık)",5,0)); }
@@ -2206,11 +2264,6 @@ async function analyzeOne(base, tf, sectorCache){
       html+=`<div class="detail">Sektör: <b>${sector.categories&&sector.categories.length?sector.categories[0]:'bilinmiyor'}</b> · 24s ${sm}</div>`;
     } else {
       html+=`<div class="detail">Sektör: CoinGecko verisine ulaşılamadı (skora katkı vermedi).</div>`;
-    }
-    if(social){
-      html+=`<div class="detail">LunarCrush: Galaxy Score <b>${social.galaxy_score!=null?social.galaxy_score:'-'}</b> · AltRank <b>#${social.alt_rank!=null?social.alt_rank:'-'}</b> · Duyarlılık <b>%${social.sentiment!=null?social.sentiment:'-'}</b> · Sosyal baskınlık <b>%${social.social_dominance!=null?social.social_dominance.toFixed(2):'-'}</b></div>`;
-    } else if(lcKey()){
-      html+=`<div class="detail">LunarCrush: bu coin listede bulunamadı ya da veriye ulaşılamadı (skora katkı vermedi).</div>`;
     }
     html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Puan dökümü</div>${rows.join("")}</div>`;
     html+=`<div class="detail" style="margin-top:10px;color:var(--muted)">Bu skor kural-tabanlı bir göstergedir; geriye dönük doğrulanmış bir kâr modeli değildir.</div>`;
@@ -2325,7 +2378,6 @@ function clearList(){
 (function(){
   const k=store.get("fmpkey",""); if(k) $("s-key").value=k;
   const cw=store.get("corsworker",""); if(cw) $("s-cors-worker").value=cw;
-  const lk=store.get("lunarkey",""); if(lk) $("lc-key").value=lk;
   /* "watchlist" (piyasa seçici öncesi, eski tek liste) varsa ABD listesine taşı */
   const legacyW=store.get("watchlist","");
   const w=store.get("watchlist:us", legacyW);
