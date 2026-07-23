@@ -327,7 +327,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">CoinDesk, Cointelegraph, Decrypt haberleri + CoinGecko topluluk duyarlılığı · anahtar-kelime sezgiseliyle kısa/uzun vade puanı</p>
 
   <div class="warnbox">
-    <b>Önemli — bu bir AI yorumu değil:</b> Puan ve yorum, taze haber başlıklarındaki olumlu/olumsuz kelimeleri sayan kaba, mekanik bir sezgiselden üretiliyor; gerçek bir haberi okuyup anlayan bir yapay zeka değil. Yanlış/yanıltıcı olabilir, yatırım tavsiyesi değildir. Anahtar gerekmez ama haber siteleri ve CoinGecko'ya tarayıcıdan doğrudan erişim (CORS) doğrulanmadı — BIST/Almanya'daki gibi genel proxy'ler denenir, en güvenilir sonuç için Hisse sekmesindeki kendi CORS Worker adresini burada da kullanabilirsin.
+    <b>Önemli — bu bir AI yorumu değil:</b> Puan ve yorum, taze haber başlıklarındaki olumlu/olumsuz kelimeleri sayan kaba, mekanik bir sezgiselden üretiliyor; gerçek bir haberi okuyup anlayan bir yapay zeka değil. Basit olumsuzlama kalıpları ("not going to crash" gibi) kelimenin işareti ters çevrilerek düzeltilir, ama uzak/çift olumsuzlama ya da alaycı ifadeler kaçabilir. Yanlış/yanıltıcı olabilir, yatırım tavsiyesi değildir. Anahtar gerekmez ama haber siteleri ve CoinGecko'ya tarayıcıdan doğrudan erişim (CORS) doğrulanmadı — BIST/Almanya'daki gibi genel proxy'ler denenir, en güvenilir sonuç için Hisse sekmesindeki kendi CORS Worker adresini burada da kullanabilirsin.
   </div>
 
   <div class="settings-body" style="padding:0 0 12px">
@@ -913,19 +913,39 @@ const NEG_WORDS=["crash","plunge","tumble","selloff","sell-off","bearish","dump"
 const STRUCT_POS_WORDS=["adoption","partner","institutional","integration","integrates","mainnet","expan","investment","backed by","approv","listing","lists on"];
 const STRUCT_NEG_WORDS=["hack","exploit","lawsuit","sues","sued","charges","ban","delist","fraud","scam","investigation","probe","bankruptcy","insolven"];
 
-function countHits(text, words){
-  let n=0;
-  for(const w of words){ if(text.includes(w)) n++; }
-  return n;
+/* olumsuzlayıcılar: bir anahtar kelimenin hemen öncesinde bunlardan biri
+   varsa o eşleşmenin işareti ters çevrilir (ör. "not going to crash" ->
+   crash olumsuzlanmış -> olumlu sayılır). "n't" ile bitenler (isn't/won't/
+   doesn't ...) ayrıca yakalanır. Bu tam bir dil kavrama değildir; yalnızca
+   en yaygın olumsuzlama kalıplarını düzeltir, uzak/çift olumsuzlamayı kaçırabilir. */
+const NEGATORS=["not","no","never","without","unlikely","fails","fail","avoid","avoids","avoided","denies","deny","denied","dodge","dodges","halt","halts","end","ends"];
+
+function isNegatedAt(text, idx){
+  const before=text.slice(Math.max(0, idx-30), idx);
+  const words=before.split(/[^a-z']+/).filter(Boolean).slice(-4);
+  return words.some(w=> NEGATORS.includes(w) || w.endsWith("n't"));
+}
+/* her kelime başlıkta en fazla bir kez sayılır; öncesinde olumsuzlayıcı varsa
+   "olumsuzlanmış" kovaya düşer ve karşı tarafa (ters işaret) yazılır */
+function scanWords(text, words){
+  let hits=0, negated=0;
+  for(const w of words){
+    const idx=text.indexOf(w);
+    if(idx===-1) continue;
+    if(isNegatedAt(text, idx)) negated++; else hits++;
+  }
+  return {hits, negated};
 }
 function scoreHeadlines(headlines){
   let pos=0,neg=0,structPos=0,structNeg=0;
   for(const h of headlines){
     const t=h.title.toLowerCase();
-    pos+=countHits(t,POS_WORDS);
-    neg+=countHits(t,NEG_WORDS);
-    structPos+=countHits(t,STRUCT_POS_WORDS);
-    structNeg+=countHits(t,STRUCT_NEG_WORDS);
+    const p=scanWords(t,POS_WORDS),  n=scanWords(t,NEG_WORDS);
+    const sp=scanWords(t,STRUCT_POS_WORDS), sn=scanWords(t,STRUCT_NEG_WORDS);
+    pos       += p.hits  + n.negated;   // olumsuzlanmış olumsuz -> olumlu
+    neg       += n.hits  + p.negated;   // olumsuzlanmış olumlu  -> olumsuz
+    structPos += sp.hits + sn.negated;
+    structNeg += sn.hits + sp.negated;
   }
   return {pos,neg,structPos,structNeg};
 }
