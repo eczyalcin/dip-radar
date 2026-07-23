@@ -14,10 +14,13 @@
   p.sub{color:var(--muted);font-size:12.5px;margin-top:4px}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
   .warnbox{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--muted);margin-bottom:12px}
-  .row{display:flex;gap:10px;margin-bottom:10px}
-  .field{flex:1;display:flex;flex-direction:column;gap:4px}
+  .row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .field{flex:1;min-width:90px;display:flex;flex-direction:column;gap:4px}
   .field label{font-size:11.5px;color:var(--muted)}
-  .field input{background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px;width:100%}
+  .field input[type=number]{background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px;width:100%}
+  .tfrow{display:flex;gap:16px;align-items:center;margin-bottom:10px}
+  .tfrow label{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--text)}
+  .tfrow input{width:18px;height:18px;accent-color:var(--amber)}
   .btns{display:flex;gap:10px;margin-bottom:12px}
   button{border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:800;cursor:pointer}
   button.primary{flex:1;background:var(--amber);color:#161001}
@@ -28,23 +31,31 @@
   .progress i{display:block;height:100%;width:0%;background:var(--amber);transition:width .2s}
   #status{font-size:12.5px;color:var(--muted);min-height:18px;margin-bottom:8px}
   #log{background:#0a0e14;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--muted);white-space:pre-wrap;max-height:44vh;overflow:auto}
-  b.g{color:var(--green)}b.a{color:var(--amber)}
 </style>
 </head>
 <body>
 <header>
   <h1>Dip <span>Radar</span> · Backtest verisi indir</h1>
-  <p class="sub">Binance'ten 5m + 15m mumlarını çekip tek bir JSON olarak indirir. Bu dosyayı Claude'a gönder; parametre taramasını (zaman dilimi × lookback × düşüş%) o çalıştırır.</p>
+  <p class="sub">Binance'ten seçilen mumları çekip tek bir JSON olarak indirir. Bu dosyayı Claude'a gönder; parametre taramasını o çalıştırır.</p>
 </header>
 
 <div class="warnbox">
-  Bu araç yalnızca <b>veri indirir</b> — hiçbir işlem/analiz yapmaz. Binance'e tarayıcıdan doğrudan erişir (uygulamanın kendisi gibi). Çok sayıda istek yapacağı için <b>ekranı açık tut</b>; arka plana geçersen (başka uygulama/ekran kilidi) iOS duraklatır, geri dönünce kaldığı yerden devam etmez — o durumda tekrar başlat. Yarıda durdurursan bile o ana kadar inen veri "İndir" ile alınabilir.
+  Bu araç yalnızca <b>veri indirir</b>. Binance'e tarayıcıdan doğrudan erişir. Çok istek yapacağı için <b>ekranı açık tut</b>; arka plana geçersen iOS duraklatır (kaldığı yerden devam etmez → tekrar başlat). Yarıda durdurursan bile inen veri "İndir" ile alınabilir.
+</div>
+<div class="warnbox">
+  <b>Büyük indirmeler (ör. 50 coin / 12 ay) için:</b> mobil tarayıcı belleği dolup çökebilir. <b>Parça parça indir</b> — ör. "Başlangıç 0, kaç coin 15" ile 1. dosya, sonra "Başlangıç 15, kaç coin 15" ile 2. dosya… Her dosyayı ayrı ayrı Claude'a yolla, o birleştirir. Ayrıca backtest 15m'i elediği için <b>sadece 5m</b> yeterli (15m'i istersen aç).
 </div>
 
 <div class="card">
   <div class="row">
-    <div class="field"><label>Coin sayısı (hacme göre en likit)</label><input type="number" id="coins" value="20" min="3" max="60"></div>
-    <div class="field"><label>Geçmiş (ay)</label><input type="number" id="months" value="3" min="1" max="12" step="0.5"></div>
+    <div class="field"><label>Kaç coin</label><input type="number" id="coins" value="15" min="1" max="100"></div>
+    <div class="field"><label>Başlangıç sırası (batch)</label><input type="number" id="offset" value="0" min="0" max="300"></div>
+    <div class="field"><label>Geçmiş (ay)</label><input type="number" id="months" value="12" min="1" max="18" step="0.5"></div>
+  </div>
+  <div class="tfrow">
+    <span style="font-size:11.5px;color:var(--muted)">Zaman dilimleri:</span>
+    <label><input type="checkbox" id="tf5" checked> 5m</label>
+    <label><input type="checkbox" id="tf15"> 15m</label>
   </div>
   <div class="btns">
     <button class="primary" id="startbtn" onclick="run()">Veriyi indir</button>
@@ -60,10 +71,9 @@
 <script>
 const $=id=>document.getElementById(id);
 const SPOT="https://api.binance.com";
-const TFS=["5m","15m"];
 const TF_MS={"5m":300000,"15m":900000};
-const STABLES=new Set(["USDCUSDT","FDUSDUSDT","TUSDUSDT","USDPUSDT","EURUSDT","DAIUSDT","BUSDUSDT","USDEUSDT","AEURUSDT","EURIUSDT","XUSDUSDT","USD1USDT"]);
-let stopFlag=false, dataset=null, wakeLock=null;
+const STABLES=new Set(["USDCUSDT","FDUSDUSDT","TUSDUSDT","USDPUSDT","EURUSDT","DAIUSDT","BUSDUSDT","USDEUSDT","AEURUSDT","EURIUSDT","XUSDUSDT","USD1USDT","RLUSDUSDT"]);
+let stopFlag=false, dataset=null, wakeLock=null, TFS=["5m"];
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function log(msg){ const el=$("log"); el.textContent += (el.textContent?"\n":"")+msg; el.scrollTop=el.scrollHeight; }
@@ -97,21 +107,23 @@ async function pool(items, limit, worker){
   await Promise.all(runners);
 }
 
-async function getUniverse(topN){
+/* hacme göre sıralı evreni al, [offset, offset+count) dilimini döndür (batch için) */
+async function getUniverse(offset, count){
   const t=await fetchJson(SPOT+"/api/v3/ticker/24hr");
-  return t.filter(x=>x.symbol.endsWith("USDT"))
+  const ranked=t.filter(x=>x.symbol.endsWith("USDT"))
     .filter(x=>!STABLES.has(x.symbol))
     .filter(x=>!/(UP|DOWN|BULL|BEAR)USDT$/.test(x.symbol))
     .filter(x=>parseFloat(x.quoteVolume)>0)
     .sort((a,b)=>parseFloat(b.quoteVolume)-parseFloat(a.quoteVolume))
-    .slice(0,topN).map(x=>x.symbol);
+    .map(x=>x.symbol);
+  return ranked.slice(offset, offset+count);
 }
 
-/* startTime'dan bugüne kadar ileri doğru sayfalayarak tüm mumları çeker.
+/* startTime'dan bugüne ileri sayfalayarak tüm mumları çeker.
    Kompakt biçim: [openTime, o, h, l, c, v, takerBuyBase] */
 async function fetchSeries(sym, tf, startTime){
   const out=[]; const step=TF_MS[tf]; const now=Date.now();
-  let cursor=startTime, pages=0; const maxPages=500;
+  let cursor=startTime, pages=0; const maxPages=800;
   while(cursor<now && pages<maxPages && !stopFlag){
     const kk=await fetchJson(SPOT+"/api/v3/klines?symbol="+sym+"&interval="+tf+"&startTime="+cursor+"&limit=1000");
     if(!Array.isArray(kk)||!kk.length) break;
@@ -127,8 +139,11 @@ async function fetchSeries(sym, tf, startTime){
 
 async function run(){
   stopFlag=false;
-  const topN=Math.max(3, Math.min(60, parseInt($("coins").value)||20));
-  const months=Math.max(1, Math.min(12, parseFloat($("months").value)||3));
+  const count=Math.max(1, Math.min(100, parseInt($("coins").value)||15));
+  const offset=Math.max(0, Math.min(300, parseInt($("offset").value)||0));
+  const months=Math.max(1, Math.min(18, parseFloat($("months").value)||12));
+  TFS=[]; if($("tf5").checked)TFS.push("5m"); if($("tf15").checked)TFS.push("15m");
+  if(!TFS.length){ alert("En az bir zaman dilimi seç (5m veya 15m)."); return; }
   const startTime=Date.now()-Math.round(months*30*24*3600*1000);
 
   $("startbtn").disabled=true; $("stopbtn").disabled=false; $("exportbtn").disabled=true;
@@ -137,15 +152,16 @@ async function run(){
   await wake();
 
   let universe;
-  try{ universe=await getUniverse(topN); }
+  try{ universe=await getUniverse(offset, count); }
   catch(e){ log("Evren alınamadı: "+e.message+" — Binance'e erişilemedi (bölge/ağ?)."); finishUI(); return; }
-  if(!universe.length){ log("Uygun sembol bulunamadı."); finishUI(); return; }
-  log("Evren ("+universe.length+" coin): "+universe.join(", "));
+  if(!universe.length){ log("Uygun sembol bulunamadı (başlangıç sırası fazla yüksek olabilir)."); finishUI(); return; }
+  log("Batch: "+offset+"–"+(offset+universe.length)+" · "+universe.length+" coin");
+  log(universe.join(", "));
   log("Geçmiş: son "+months+" ay · zaman dilimleri: "+TFS.join(", "));
   log("——");
 
   dataset={ source:"dip-radar-backtest-downloader", version:1, exported_at:new Date().toISOString(),
-            months, timeframes:TFS, basket:universe, candles:{} };
+            months, offset, timeframes:TFS, basket:universe, candles:{} };
   TFS.forEach(tf=>dataset.candles[tf]={});
 
   let doneUnits=0; const totalUnits=universe.length*TFS.length; let totalCandles=0;
@@ -165,8 +181,8 @@ async function run(){
   });
 
   log("——");
-  const nCoins=new Set(Object.keys(dataset.candles["5m"]).concat(Object.keys(dataset.candles["15m"]))).size;
-  log((stopFlag?"DURDURULDU":"TAMAMLANDI")+" · "+nCoins+" coin · "+totalCandles.toLocaleString("tr-TR")+" mum indirildi.");
+  const keys=new Set(); TFS.forEach(tf=>Object.keys(dataset.candles[tf]).forEach(k=>keys.add(k)));
+  log((stopFlag?"DURDURULDU":"TAMAMLANDI")+" · "+keys.size+" coin · "+totalCandles.toLocaleString("tr-TR")+" mum indirildi.");
   log(stopFlag ? "Kısmi veri de 'İndir' ile alınabilir." : "Şimdi 'İndir'e bas ve dosyayı Claude'a gönder.");
   $("exportbtn").disabled=false;
   finishUI();
@@ -181,8 +197,11 @@ function finishUI(){
 async function exportData(){
   if(!dataset){ alert("Önce veri indir."); return; }
   $("status").textContent="Dosya hazırlanıyor…";
-  const json=JSON.stringify(dataset);
-  let blob, fname="dipradar_backtest_"+new Date().toISOString().slice(0,10);
+  let json;
+  try{ json=JSON.stringify(dataset); }
+  catch(e){ alert("Veri belleğe sığmadı (çok büyük). Daha az coin / daha kısa geçmişle, parça parça indir."); $("status").textContent="Hata: veri çok büyük."; return; }
+  const tag=(dataset.offset||0)+"-"+((dataset.offset||0)+dataset.basket.length);
+  let blob, fname="dipradar_backtest_"+tag+"_"+new Date().toISOString().slice(0,10);
   try{
     const stream=new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"));
     blob=await new Response(stream).blob(); fname+=".json.gz";
