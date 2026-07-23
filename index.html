@@ -128,7 +128,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 
 <div class="tabs">
   <div class="tab active" id="tab-crypto" onclick="switchTab('crypto')">Kripto (Binance)</div>
-  <div class="tab" id="tab-stock" onclick="switchTab('stock')">Hisse (FMP)</div>
+  <div class="tab" id="tab-stock" onclick="switchTab('stock')">Hisse</div>
 </div>
 
 <!-- ================= KRİPTO ================= -->
@@ -363,8 +363,8 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 
   <div class="filterbar on" id="s-market">
     <div class="fbtn active" data-market="us" onclick="setStockMarket('us')">ABD (FMP)</div>
-    <div class="fbtn" data-market="bist" onclick="setStockMarket('bist')">BIST (İş Yatırım)</div>
-    <div class="fbtn" data-market="de" onclick="setStockMarket('de')">Almanya (Stooq)</div>
+    <div class="fbtn" data-market="bist" onclick="setStockMarket('bist')">BIST</div>
+    <div class="fbtn" data-market="de" onclick="setStockMarket('de')">Almanya</div>
   </div>
 
   <div class="warnbox" id="s-warnbox">
@@ -2268,12 +2268,12 @@ function applyPack(){
   const k=$("s-pack").value;
   if(!k || !STOCK_PACKS[k]) return;
   $("s-list").value=STOCK_PACKS[k].join(", ");
-  store.set("watchlist", $("s-list").value);
+  store.set("watchlist:"+stockMarket, $("s-list").value);
 }
 function clearList(){
   $("s-list").value="";
   $("s-pack").value="";
-  store.set("watchlist","");
+  store.set("watchlist:"+stockMarket, "");
 }
 
 /* ---------- kayıtlı değerleri yükle ---------- */
