@@ -325,6 +325,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="scanbar">
     <button class="primary" id="an-btn" onclick="analyzeCoin()">Coinleri analiz et</button>
     <button class="ghost" id="an-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
+    <button class="ghost" id="an-clearbtn" onclick="clearAnalyze()" style="display:none">Temizle</button>
   </div>
 
   <div class="progress" id="an-prog"><i id="an-progbar"></i></div>
@@ -350,6 +351,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
 
   <div class="scanbar">
     <button class="primary" id="lc-scanbtn" onclick="scanSocial()">Sosyal taramayı başlat</button>
+    <button class="ghost" id="lc-clearbtn" onclick="clearSocial()" style="display:none">Temizle</button>
   </div>
 
   <div class="progress" id="lc-prog"><i id="lc-progbar"></i></div>
@@ -507,6 +509,21 @@ function clearResults(prefix){
   $(prefix+"-clearbtn").style.display="none";
   $(prefix+"-status").textContent="";
   if(prefix==="s") $("s-errors").innerHTML="";
+}
+
+/* Coin analiz ve Sosyal tarama, diğerlerinin aksine özet/filtre/sayfalama
+   kullanmıyor (tek seferlik render) — bu yüzden clearResults()'a değil,
+   kendi sade temizleyicilerine ihtiyaçları var. */
+function clearAnalyze(){
+  $("an-result").innerHTML="";
+  $("an-status").textContent="";
+  $("an-clearbtn").style.display="none";
+}
+function clearSocial(){
+  $("lc-results").innerHTML="";
+  $("lc-status").textContent="";
+  $("lc-empty").classList.remove("on");
+  $("lc-clearbtn").style.display="none";
 }
 
 /* karttaki sembole tıklayınca Coin analiz'e atla ve otomatik analiz et */
@@ -917,6 +934,7 @@ async function scanSocial(){
   const btn=$("lc-scanbtn"); btn.disabled=true;
   $("lc-prog").classList.add("on"); $("lc-progbar").style.width="30%";
   $("lc-results").innerHTML=""; $("lc-empty").classList.remove("on");
+  $("lc-clearbtn").style.display="none";
   $("lc-status").textContent="LunarCrush'tan veri alınıyor…";
 
   const list=await lcGetList();
@@ -937,6 +955,7 @@ async function scanSocial(){
     } else {
       $("lc-results").innerHTML=sorted.map(renderSocialCard).join("");
       $("lc-status").textContent=`${sorted.length} coin listelendi · sıralama: ${sortMetric}`;
+      $("lc-clearbtn").style.display="block";
     }
   }
   btn.disabled=false;
@@ -2238,6 +2257,7 @@ async function analyzeCoin(){
   btn.disabled=true; stop.style.display="block";
   $("an-prog").classList.add("on"); $("an-progbar").style.width="0%";
   $("an-result").innerHTML="";
+  $("an-clearbtn").style.display="none";
   const status=$("an-status");
 
   const tasks=[];
@@ -2261,6 +2281,7 @@ async function analyzeCoin(){
   if(errResults.length){
     $("an-result").innerHTML += '<div class="warnbox">'+errResults.map(e=>"• "+escapeHtml(e.error)).join("<br>")+"</div>";
   }
+  $("an-clearbtn").style.display = (okResults.length||errResults.length) ? "block" : "none";
   status.textContent = abortFlag
     ? `Analiz durduruldu. ${okResults.length}/${tasks.length} tamamlandı.`
     : `Tamamlandı: ${okResults.length}/${tasks.length} kombinasyon.`;
