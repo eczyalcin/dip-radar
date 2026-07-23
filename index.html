@@ -295,6 +295,59 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="empty" id="sc-empty">Scalping kriterine uyan coin yok. Hacim çarpanını veya skor eşiğini düşürmeyi dene.</div>
 
   <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
+  <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Scalping · <span style="color:var(--amber)">dip yakalama</span></h1>
+  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">5m · yerel düşüş + RSI pozitif uyumsuzluk + kapitülasyon/dönüş mumu · OI/funding canlı teyit · <b>backtest ile ayarlandı</b></p>
+
+  <div class="warnbox">
+    <b>Backtest temelli:</b> Bu modülün ayarları (5m zaman dilimi, ~24 mum lookback, %3.5 yerel düşüş) 3 ay + 12 ay Binance verisiyle taranarak seçildi. Sinyal, rastgele girişe göre işlem başına ~+%0.1–0.5 (komisyon dahil) fazla getiri gösterdi — <b>gerçek ama modest bir zamanlama avantajı, kâr garantisi değil.</b> Kazanma oranı ~%45–55; edge yüksek isabetten değil, ~16–32 mum (80–160 dk) tutulan pozisyonun lehte dağılımından geliyor. Sıkı scalp TP/SL komisyon sonrası çalışmadı. 15m elendi. OI/funding backtest'e giremedi (geçmiş veri sınırı) — yalnızca canlı teyit rozetidir.
+  </div>
+
+  <details class="settings">
+    <summary>Dip yakalama ayarları</summary>
+    <div class="settings-body">
+      <div class="field"><label>Taranacak coin sayısı (hacme göre)</label><input type="number" id="sd-topn" value="300" min="10" max="500"></div>
+      <div class="field"><label>Sinyal katılığı</label>
+        <select id="sd-strict" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
+          <option value="core" selected>CORE — uyumsuzluk + (kapitülasyon VEYA dönüş)</option>
+          <option value="full">FULL — uyumsuzluk + kapitülasyon VE dönüş</option>
+        </select>
+      </div>
+      <div class="field"><label>Lookback (yerel tepe + uyumsuzluk penceresi)</label><input type="number" id="sd-lb" value="24" min="10" max="60"></div>
+      <div class="field"><label>Yerel düşüş eşiği (% ve üzeri)</label><input type="number" id="sd-dd" value="3.5" min="1" max="15" step="0.5"></div>
+      <div class="field"><label>RSI periyodu</label><input type="number" id="sd-rsip" value="14" min="5" max="30"></div>
+      <div class="field"><label>Uyumsuzluk: 1. dip RSI üst sınırı</label><input type="number" id="sd-rsimax" value="45" min="20" max="60"></div>
+      <div class="field"><label>Kapitülasyon hacim çarpanı</label><input type="number" id="sd-capv" value="2.5" min="1.5" max="10" step="0.5"></div>
+      <div class="field"><label>Dönüş mumu hacim çarpanı</label><input type="number" id="sd-revv" value="2" min="1.2" max="8" step="0.1"></div>
+    </div>
+  </details>
+
+  <div class="scanbar">
+    <button class="primary" id="sd-scanbtn" onclick="scanScalpDip()">Dip yakalama taramasını başlat</button>
+    <button class="ghost" id="sd-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
+    <button class="ghost" id="sd-clearbtn" onclick="clearResults('sd')" style="display:none">Temizle</button>
+  </div>
+
+  <div class="progress" id="sd-prog"><i id="sd-progbar"></i></div>
+  <div class="status" id="sd-status"></div>
+
+  <div class="summary" id="sd-summary">
+    <div class="stat"><b id="sd-s-scanned">0</b><span>tarandı</span></div>
+    <div class="stat"><b id="sd-s-gate">0</b><span>dip+uyum. geçti</span></div>
+    <div class="stat"><b id="sd-s-signal">0</b><span>sinyalli</span></div>
+    <div class="stat"><b id="sd-s-full">0</b><span>tam eşleşme</span></div>
+  </div>
+
+  <div class="filterbar" id="sd-filter">
+    <div class="fbtn active" data-min="1" onclick="setFilter('sd',1)">Tümü</div>
+    <div class="fbtn" data-min="3" onclick="setFilter('sd',3)">Tam eşleşme (3)</div>
+  </div>
+  <div class="fcount" id="sd-fcount"></div>
+
+  <div id="sd-results"></div>
+  <button class="ghost morebtn" id="sd-morebtn" onclick="showMore('sd')" style="display:none">Daha fazla göster</button>
+  <div class="empty" id="sd-empty">Dip-scalp kriterine uyan coin yok. Yerel düşüş eşiğini veya katılığı (CORE) gevşetmeyi dene.</div>
+
+  <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
   <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Coin <span style="color:var(--amber)">analiz</span></h1>
   <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Çoklu coin · çoklu zaman dilimi · kural-tabanlı Long/Short skoru (kâr garantisi değil)</p>
 
@@ -446,11 +499,11 @@ let abortFlag = false;
 
 /* ---------- sonuç filtreleme / sayfalama / temizleme ---------- */
 const rawResults = {};             // prefix -> {list, currency}
-const filterMin = {c:2, s:2, sc:6, sh:3}; // varsayılan eşikler
+const filterMin = {c:2, s:2, sc:6, sh:3, sd:1}; // varsayılan eşikler
 const PAGE_SIZE = 25;
-const shownCount = {c:PAGE_SIZE, s:PAGE_SIZE, sc:PAGE_SIZE, sh:PAGE_SIZE};
+const shownCount = {c:PAGE_SIZE, s:PAGE_SIZE, sc:PAGE_SIZE, sh:PAGE_SIZE, sd:PAGE_SIZE};
 const EMPTY_MSG = {};
-["c","s","sc","sh","lc"].forEach(p=>{ const el=$(p+"-empty"); if(el) EMPTY_MSG[p]=el.textContent; });
+["c","s","sc","sh","sd","lc"].forEach(p=>{ const el=$(p+"-empty"); if(el) EMPTY_MSG[p]=el.textContent; });
 
 /* son taramayı localStorage'a yaz — sayfa yenilenince kaybolmasın */
 function persistResults(prefix){
@@ -472,6 +525,7 @@ function setFilter(prefix, min){
   });
   if(prefix==="sc") applyFilterScalp();
   else if(prefix==="sh") applyFilterShort();
+  else if(prefix==="sd") applyFilterScalpDip();
   else applyFilter(prefix);
 }
 
@@ -479,6 +533,7 @@ function showMore(prefix){
   shownCount[prefix]+=PAGE_SIZE;
   if(prefix==="sc") applyFilterScalp();
   else if(prefix==="sh") applyFilterShort();
+  else if(prefix==="sd") applyFilterScalpDip();
   else applyFilter(prefix);
 }
 
@@ -1895,6 +1950,173 @@ async function scanScalping(){
   }
 }
 
+/* ================= SCALPING · DİP YAKALAMA =================
+   Dip-radar mantığının (yerel düşüş + RSI pozitif uyumsuzluk + kapitülasyon +
+   hacimli dönüş mumu) 5m'ye uyarlanmış hâli. Parametreler (5m, ~24 mum
+   lookback, %3.5 yerel düşüş, CORE katılık) Binance verisiyle 3 ay + 12 ay
+   backtest edilerek seçildi: 5m'de rastgele girişe göre işlem başına
+   ~+%0.1–0.5 (komisyon dahil) tutarlı, out-of-sample dayanıklı fazla getiri.
+   15m elendi. OI/funding backtest'e giremedi (geçmiş OI ~30 günle sınırlı) —
+   yalnızca canlı teyit rozetidir, sinyali kapılamaz. */
+function scalpDipParams(){
+  const L=parseInt($("sd-lb").value);
+  return {
+    topN: parseInt($("sd-topn").value),
+    ddMin: parseFloat($("sd-dd").value)/100,
+    lookback: L,            // hem yerel-tepe penceresi hem uyumsuzluk arama penceresi
+    recent: 8,              // son dip en çok bu kadar mum önce (backtest'te sabit)
+    rsiPeriod: parseInt($("sd-rsip").value),
+    rsiMax: parseFloat($("sd-rsimax").value),
+    capWindow: L,
+    capVolMult: parseFloat($("sd-capv").value),
+    revWindow: 6,
+    revVolMult: parseFloat($("sd-revv").value),
+    strict: $("sd-strict").value  // "core" | "full"
+  };
+}
+
+/* tek sembol dip sinyali — mevcut serinin SON barına göre değerlendirilir
+   (canlı tarayıcı: şu anki kurulum). Sinyal yoksa null döner. */
+function analyzeScalpDip(sD, p){
+  if(!sD || sD.c.length<80) return null;
+  const {o,h,l,c,v}=sD;
+  const n=c.length;
+  const rsi=computeRSI(c,p.rsiPeriod);
+  const atr=computeATR(h,l,c,14);
+  const vs=volSMA(v,20);
+  /* yerel düşüş kapısı: son L mumun tepesinden %X aşağıda mı (ATH değil — scalp yerel) */
+  let localHigh=0; for(let i=Math.max(0,n-p.lookback);i<n;i++){ if(h[i]>localHigh) localHigh=h[i]; }
+  if(localHigh<=0) return null;
+  const dd=1 - c[n-1]/localHigh;
+  if(dd < p.ddMin) return null;
+  const div=bullishDivergence(l,rsi,p);
+  if(!div) return null; // uyumsuzluk her iki katılıkta da zorunlu
+  const cap=findCapitulation(o,h,l,c,v,atr,vs,p);
+  const rev=findReversal(o,h,l,c,v,vs,p);
+  const ok = p.strict==="full" ? (cap&&rev) : (cap||rev);
+  if(!ok) return null;
+  return {dd, div, cap, rev, score:(div?1:0)+(cap?1:0)+(rev?1:0), lastRSI:rsi[n-1]};
+}
+
+function renderScalpDipCard(r){
+  const g=r.sig, full=g.score===3;
+  const ddPct=g.dd*100, pos=Math.min(99,Math.max(1,ddPct));
+  let html=`<div class="card ${full?'full-match':''}" data-symbol="${escapeHtml(r.symbol)}">
+    <div class="card-top">
+      <div class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git">${escapeHtml(r.symbol)}${full?'<span class="fullmatch-tag">TAM EŞLEŞME</span>':''}</div>
+      <div class="price mono">${fmtPrice(r.price)} USDT</div>
+    </div>
+    <div class="depth">
+      <div class="track"><span class="marker" style="left:${pos}%"></span></div>
+      <div class="labels"><span>yerel tepe</span><span class="mono">tepeden −%${ddPct.toFixed(1)}</span></div>
+    </div>
+    <div class="badges">
+      <span class="badge on-div">Uyumsuzluk ✓</span>
+      <span class="badge ${g.cap?'on-cap':''}">Kapitülasyon ${g.cap?'✓':'—'}</span>
+      <span class="badge ${g.rev?'on-rev':''}">Dönüş mumu ${g.rev?'✓':'—'}</span>
+      ${r.oi!=null?`<span class="badge ${r.oi>=0?'on-rev':'on-cap'}">OI %${(r.oi*100).toFixed(2)}</span>`:''}
+      ${r.funding!=null?`<span class="badge on-div">Funding %${(r.funding*100).toFixed(3)}</span>`:''}
+    </div>
+    <div class="detail">`;
+  const parts=[];
+  parts.push(`Uyumsuzluk: RSI dip <b>${g.div.rsi1.toFixed(1)} → ${g.div.rsi2.toFixed(1)}</b> (${g.div.barsAgo} mum önce)`);
+  if(g.cap) parts.push(`Kapitülasyon: <b>${g.cap.volX.toFixed(1)}×</b> hacim, ${g.cap.barsAgo} mum önce`);
+  if(g.rev) parts.push(`Dönüş: <b>${g.rev.volX.toFixed(1)}×</b> hacimli yeşil mum, ${g.rev.barsAgo} mum önce`);
+  html+=parts.join(" · ");
+  html+=` · Güncel 5m RSI: <b>${g.lastRSI!=null?g.lastRSI.toFixed(1):'-'}</b>`;
+  html+=`<div style="margin-top:6px;color:var(--muted)">Backtest önerisi: ~16–32 mum (80–160 dk) tut · ılımlı hedef/stop (ör. +%2 / −%1.2). Sıkı scalp TP/SL komisyon sonrası çalışmadı.</div>`;
+  html+=`</div></div>`;
+  return html;
+}
+
+function applyFilterScalpDip(){
+  const data=rawResults.sd;
+  const box=$("sd-results"), emptyEl=$("sd-empty"), countEl=$("sd-fcount"), moreBtn=$("sd-morebtn");
+  if(!data || !data.list.length){
+    box.innerHTML=""; moreBtn.style.display="none";
+    emptyEl.textContent=EMPTY_MSG.sd; emptyEl.classList.toggle("on", !!data); countEl.textContent="";
+    return;
+  }
+  const min=filterMin.sd;
+  const filtered=data.list.filter(r=>r.sig.score>=min);
+  const shown=filtered.slice(0, shownCount.sd);
+  box.innerHTML=shown.map(renderScalpDipCard).join("");
+  const remaining=filtered.length-shown.length;
+  moreBtn.style.display=remaining>0?"block":"none";
+  moreBtn.textContent=`Daha fazla göster (+${remaining})`;
+  emptyEl.classList.toggle("on", filtered.length===0);
+  emptyEl.textContent = filtered.length===0 ? 'Bu filtrede sonuç yok. "Tümü"nü dene.' : EMPTY_MSG.sd;
+  countEl.textContent = `${shown.length} / ${filtered.length} gösteriliyor (toplam ${data.list.length} sinyalli)`;
+}
+
+async function scanScalpDip(){
+  abortFlag=false;
+  beginScan();
+  const p=scalpDipParams();
+  const btn=$("sd-scanbtn"), stop=$("sd-stopbtn");
+  btn.disabled=true; stop.style.display="block";
+  $("sd-prog").classList.add("on"); $("sd-progbar").style.width="0%";
+  $("sd-results").innerHTML=""; $("sd-empty").classList.remove("on");
+  $("sd-summary").classList.remove("on");
+  $("sd-filter").classList.remove("on"); $("sd-clearbtn").style.display="none"; $("sd-morebtn").style.display="none"; rawResults.sd=null;
+  const status=$("sd-status");
+  const results=[]; let gateCount=0, done=0;
+
+  try{
+    status.textContent="Futures sembol listesi alınıyor…";
+    const tr=await fetch(`${FUT}/fapi/v1/ticker/24hr`);
+    if(!tr.ok) throw new Error("Futures ticker hatası: "+tr.status);
+    const tk=await tr.json();
+    const universe=tk
+      .filter(t=>t.symbol.endsWith("USDT"))
+      .filter(t=>!/(UP|DOWN|BULL|BEAR)USDT$/.test(t.symbol))
+      .filter(t=>parseFloat(t.quoteVolume)>0)
+      .sort((a,b)=>parseFloat(b.quoteVolume)-parseFloat(a.quoteVolume))
+      .slice(0,p.topN)
+      .map(t=>({symbol:t.symbol, price:parseFloat(t.lastPrice)}));
+
+    await pool(universe, 4, async (u)=>{
+      try{
+        const sD=await fetchFutOHLCV(u.symbol, "5m", 300);
+        const sig=analyzeScalpDip(sD, p);
+        if(!sig) return; // dip + uyumsuzluk + (kat.·dönüş) geçmedi
+        gateCount++;
+        /* OI/funding yalnızca canlı teyit rozeti (backtest'e girmedi) */
+        const [oi, funding] = await Promise.all([
+          fetchOIchange(u.symbol, "5m"),
+          fetchFunding(u.symbol)
+        ]);
+        results.push({symbol:u.symbol.replace("USDT","/USDT"), price:u.price, sig, oi, funding});
+      }catch(e){ /* tek sembol hatası taramayı durdurmasın */ }
+      finally{
+        done++;
+        $("sd-progbar").style.width=(done/universe.length*100).toFixed(1)+"%";
+        status.textContent=`${u.symbol} · ${done}/${universe.length}`;
+        $("sd-s-scanned").textContent=done;
+        $("sd-s-gate").textContent=gateCount;
+      }
+    });
+
+    results.sort((a,b)=> b.sig.score-a.sig.score || b.sig.dd-a.sig.dd);
+    rawResults.sd={list:results};
+    shownCount.sd=PAGE_SIZE;
+    $("sd-s-signal").textContent=results.length;
+    $("sd-s-full").textContent=results.filter(r=>r.sig.score===3).length;
+    $("sd-summary").classList.add("on");
+    $("sd-filter").classList.toggle("on", results.length>0);
+    $("sd-clearbtn").style.display=results.length>0?"block":"none";
+    persistResults("sd");
+    applyFilterScalpDip();
+    status.textContent=abortFlag?"Tarama durduruldu.":"Tarama tamamlandı.";
+  }catch(e){
+    status.innerHTML=`<span class="err">Hata: ${e.message}. Binance futures API'sine erişilemedi (hız sınırı veya bölge kısıtı olabilir).</span>`;
+  }finally{
+    btn.disabled=false; stop.style.display="none";
+    $("sd-prog").classList.remove("on");
+    endScan();
+  }
+}
+
 /* ================= TEPE (SHORT) SİNYAL ================= */
 
 /* günlük OHLCV + taker-buy hacmi — futures'tan (funding/OI ile aynı evren) */
@@ -2463,6 +2685,24 @@ function clearList(){
         $("sh-s-scanned").textContent="—"; $("sh-s-gate").textContent="—"; // kaydedilmeyen sayaçlar — yanıltıcı 0 yerine tire
         applyFilterShort();
         $("sh-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
+      }
+    }catch(e){}
+  }
+  const rawSd=store.get("results:sd","");
+  if(rawSd){
+    try{
+      const saved=JSON.parse(rawSd);
+      if(saved && saved.list && saved.list.length){
+        rawResults.sd={list:saved.list};
+        shownCount.sd=PAGE_SIZE;
+        $("sd-s-signal").textContent=saved.list.length;
+        $("sd-s-full").textContent=saved.list.filter(r=>r.sig&&r.sig.score===3).length;
+        $("sd-summary").classList.add("on");
+        $("sd-filter").classList.toggle("on", true);
+        $("sd-clearbtn").style.display="block";
+        $("sd-s-scanned").textContent="—"; $("sd-s-gate").textContent="—"; // kaydedilmeyen sayaçlar — yanıltıcı 0 yerine tire
+        applyFilterScalpDip();
+        $("sd-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
       }
     }catch(e){}
   }
