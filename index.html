@@ -392,6 +392,14 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
           <option value="p6">6 · EV / temiz enerji (~15)</option>
           <option value="p7">7 · NASDAQ-100 çekirdek (~40)</option>
           <option value="p8">8 · S&P 500 likit çekirdek (~150)</option>
+          <option value="p9">9 · REIT'ler (gayrimenkul) (~20)</option>
+          <option value="p10">10 · Bölgesel bankalar (~20)</option>
+          <option value="p11">11 · Enerji / petrol-gaz (~17)</option>
+          <option value="p12">12 · Bulut / SaaS yazılım (~17)</option>
+          <option value="p13">13 · Seyahat / havayolu / kumarhane (~14)</option>
+          <option value="p14">14 · Perakende / e-ticaret (~13)</option>
+          <option value="p15">15 · Altın / gümüş madenciliği (~12)</option>
+          <option value="p16">16 · Savunma sanayi (~10)</option>
         </select>
       </div>
       <div class="field full" id="s-cors-worker-field" style="display:none">
@@ -1224,9 +1232,9 @@ function setStockMarket(m){
    diğerine geçilir. Hiçbiri garantili değildir; hepsi başarısız olursa
    sessizce null döner. */
 const CORS_PROXIES=[
-  u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,
-  u=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+  {name:"allorigins.win", build:u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`},
+  {name:"corsproxy.io", build:u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`},
+  {name:"codetabs.com", build:u=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`}
 ];
 
 /* Proxy'ler bazen hiç yanıt vermeden asılı kalabiliyor; tarayıcının
@@ -1244,21 +1252,23 @@ async function fetchWithTimeout(url, ms){
 
 /* ownWorker verilirse (kullanıcının kendi Cloudflare Worker'ı gibi) önce
    o denenir — genel proxy'lerden çok daha güvenilirdir. Başarısız olursa
-   veya verilmemişse genel proxy zincirine düşülür. */
+   veya verilmemişse genel proxy zincirine düşülür. Hangi kaynağın işe
+   yaradığı da döndürülür ("worker" veya proxy adı) — tarama sonunda
+   kullanıcıya hangi yoldan veri geldiğini gösterebilmek için. */
 async function fetchViaCorsProxy(url, ownWorker){
   if(ownWorker){
     try{
       const r=await fetchWithTimeout(`${ownWorker.replace(/\/$/,"")}?url=${encodeURIComponent(url)}`, 8000);
-      if(r.ok) return r;
+      if(r.ok) return {r, source:"kendi Worker'ın"};
     }catch(e){ /* kendi worker'ı başarısız oldu — genel proxy'lere düş */ }
   }
-  for(const build of CORS_PROXIES){
+  for(const {name, build} of CORS_PROXIES){
     try{
       const r=await fetchWithTimeout(build(url), 8000);
-      if(r.ok) return r;
+      if(r.ok) return {r, source:name};
     }catch(e){ /* bu proxy zaman aşımına uğradı veya başarısız oldu — sıradakini dene */ }
   }
-  return null;
+  return {r:null, source:null};
 }
 
 /* BIST ve Almanya günlük veri — Yahoo Finance'in ".IS"/".DE" sonekli
@@ -1268,7 +1278,7 @@ async function fetchViaCorsProxy(url, ownWorker){
 async function fetchYahooDaily(symbol, suffix, ownWorker){
   try{
     const target=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}${suffix}?range=2y&interval=1d`;
-    const r=await fetchViaCorsProxy(target, ownWorker);
+    const {r, source}=await fetchViaCorsProxy(target, ownWorker);
     if(!r) return null;
     const j=await r.json();
     const result=j && j.chart && Array.isArray(j.chart.result) ? j.chart.result[0] : null;
@@ -1286,7 +1296,7 @@ async function fetchYahooDaily(symbol, suffix, ownWorker){
       v.push(vol!=null && isFinite(vol) ? vol : 0);
     }
     if(c.length<40) return null;
-    return {o,h,l,c,v};
+    return {o,h,l,c,v,source};
   }catch(e){ return null; } /* ağ hatası veya CORS engeli — sessizce atla */
 }
 
@@ -1302,7 +1312,7 @@ async function fetchDeDaily(symbol, ownWorker){ return fetchYahooDaily(symbol, "
 async function fetchBistUniverse(ownWorker){
   try{
     const target="https://www.getmidas.com/wp-json/midas-api/v1/midas_table_data?sortId=&return=table";
-    const r=await fetchViaCorsProxy(target, ownWorker);
+    const {r}=await fetchViaCorsProxy(target, ownWorker);
     if(!r) return null;
     const j=await r.json();
     const rows=Array.isArray(j) ? j : (j && (j.data||j.table||j.result));
@@ -1458,6 +1468,7 @@ async function scanStocks(){
   $("s-filter").classList.remove("on"); $("s-clearbtn").style.display="none"; $("s-morebtn").style.display="none"; rawResults.s=null;
   const status=$("s-status");
   const results=[], errors=[];
+  const sourceTally={}; // bist/de: veri hangi yoldan geldi (kendi Worker'ı / hangi genel proxy) — teşhis için
   let gateCount=0, done=0;
 
   await pool(syms, market==="us"?3:4, async (sym)=>{
@@ -1491,11 +1502,13 @@ async function scanStocks(){
         if(!sD){ errors.push(sym+": veri alınamadı (sembol/CORS?)"); return; }
         price=sD.c[sD.c.length-1];
         ath=Math.max(...sD.h); // ~2 yıllık pencere içindeki zirve — bkz. uyarı kutusu
+        sourceTally[sD.source]=(sourceTally[sD.source]||0)+1;
       } else {
         sD=await fetchDeDaily(sym, corsWorker);
         if(!sD){ errors.push(sym+": veri alınamadı (sembol/CORS?)"); return; }
         price=sD.c[sD.c.length-1];
         ath=Math.max(...sD.h);
+        sourceTally[sD.source]=(sourceTally[sD.source]||0)+1;
       }
 
       if(ath<=0){ errors.push(sym+": zirve hesaplanamadı"); return; }
@@ -1520,7 +1533,10 @@ async function scanStocks(){
   const marketNote = market==="us"
     ? " (Not: zirve, FMP geçmişiyle sınırlıdır — gerçek ATH olmayabilir.)"
     : " (Not: zirve, ~2 yıllık geçmişle sınırlıdır — gerçek ATH olmayabilir.)";
-  status.textContent=(abortFlag?"Tarama durduruldu.":"Tarama tamamlandı.")+marketNote;
+  const sourceNote = (market==="bist"||market==="de") && Object.keys(sourceTally).length
+    ? " · veri kaynağı: "+Object.entries(sourceTally).map(([src,n])=>`${src} (${n})`).join(", ")
+    : "";
+  status.textContent=(abortFlag?"Tarama durduruldu.":"Tarama tamamlandı.")+marketNote+sourceNote;
   const currency = market==="bist" ? "TL" : (market==="de" ? "EUR" : "");
   renderResults(results,"s",currency);
   if(errors.length){
@@ -2262,7 +2278,15 @@ const STOCK_PACKS={
   p5:["NVDA","AMD","INTC","MU","QCOM","AVGO","ASML","AMAT","LRCX","ON","MRVL","TXN","ADI","NXPI","MCHP","SWKS","QRVO","TER","ENTG","KLAC"],
   p6:["RIVN","LCID","CHPT","PLUG","ENPH","FSLR","RUN","NIO","XPEV","BE","SEDG","NOVA","ARRY","STEM","QS"],
   p7:["AAPL","MSFT","GOOGL","GOOG","AMZN","NVDA","META","TSLA","AVGO","PEP","COST","ADBE","CSCO","NFLX","AMD","TMUS","INTC","QCOM","INTU","AMAT","TXN","ISRG","BKNG","HON","VRTX","ADP","REGN","MU","LRCX","PANW","SBUX","GILD","MDLZ","ADI","PYPL","KLAC","SNPS","CDNS","MRVL","ORLY"],
-  p8:["AAPL","MSFT","AMZN","GOOGL","GOOG","META","NVDA","TSLA","JPM","V","MA","UNH","HD","PG","JNJ","ABBV","WMT","LLY","XOM","CVX","KO","PEP","COST","MRK","BAC","AVGO","ADBE","CRM","ACN","MCD","TMO","ABT","LIN","CSCO","DHR","WFC","DIS","INTC","VZ","CMCSA","TXN","NKE","PM","NEE","RTX","UNP","LOW","HON","SPGI","INTU","IBM","GE","CAT","AMGN","QCOM","BA","GS","ISRG","PLD","NOW","DE","AMD","BKNG","AXP","SBUX","GILD","MDLZ","ADI","T","BLK","MMC","SYK","VRTX","LMT","TJX","REGN","CVS","ZTS","MO","C","SO","PGR","DUK","BSX","CB","MU","EQIX","AON","CL","ITW","APD","WM","MCK","SHW","CME","MMM","GD","EOG","NSC","FCX","PYPL","HUM","EMR","PSX","MAR","MCO","ORLY","ROP","ADP","KLAC","NXPI","PH","MSI","AEP","TT","CTAS","MPC","COF","TDG","F","GM","PNC","USB","DAL","UAL","CCL","NCLH","RCL","KHC","KMB","GIS","HSY","DG","DLTR","ROST","ULTA","BBY","EBAY","WBD","UBER","ABNB","DDOG","SNOW","PANW","LRCX","SNPS","CDNS","MELI","PDD"]
+  p8:["AAPL","MSFT","AMZN","GOOGL","GOOG","META","NVDA","TSLA","JPM","V","MA","UNH","HD","PG","JNJ","ABBV","WMT","LLY","XOM","CVX","KO","PEP","COST","MRK","BAC","AVGO","ADBE","CRM","ACN","MCD","TMO","ABT","LIN","CSCO","DHR","WFC","DIS","INTC","VZ","CMCSA","TXN","NKE","PM","NEE","RTX","UNP","LOW","HON","SPGI","INTU","IBM","GE","CAT","AMGN","QCOM","BA","GS","ISRG","PLD","NOW","DE","AMD","BKNG","AXP","SBUX","GILD","MDLZ","ADI","T","BLK","MMC","SYK","VRTX","LMT","TJX","REGN","CVS","ZTS","MO","C","SO","PGR","DUK","BSX","CB","MU","EQIX","AON","CL","ITW","APD","WM","MCK","SHW","CME","MMM","GD","EOG","NSC","FCX","PYPL","HUM","EMR","PSX","MAR","MCO","ORLY","ROP","ADP","KLAC","NXPI","PH","MSI","AEP","TT","CTAS","MPC","COF","TDG","F","GM","PNC","USB","DAL","UAL","CCL","NCLH","RCL","KHC","KMB","GIS","HSY","DG","DLTR","ROST","ULTA","BBY","EBAY","WBD","UBER","ABNB","DDOG","SNOW","PANW","LRCX","SNPS","CDNS","MELI","PDD"],
+  p9:["O","SPG","PLD","AMT","CCI","EQIX","PSA","WELL","AVB","EQR","DLR","VICI","IRM","EXR","MAA","ESS","UDR","ARE","BXP","KIM"],
+  p10:["KEY","RF","CFG","HBAN","FITB","ZION","CMA","MTB","TFC","WAL","SNV","VLY","EWBC","PB","FHN","ONB","WBS","GBCI","UMBF","ASB"],
+  p11:["COP","OXY","VLO","HES","DVN","FANG","MRO","APA","CTRA","EQT","KMI","WMB","OKE","TRGP","HAL","SLB","BKR"],
+  p12:["WDAY","TEAM","HUBS","FTNT","S","BILL","PCTY","GTLB","ESTC","CFLT","SMAR","APPF","VEEV","TYL","ANSS","ADSK","NTNX"],
+  p13:["AAL","LUV","ALK","JBLU","SAVE","EXPE","TRIP","HLT","H","WH","MGM","WYNN","LVS","CZR"],
+  p14:["TGT","KR","ETSY","W","FIVE","BURL","GPS","ANF","AEO","LULU","DECK","CROX","ONON"],
+  p15:["NEM","GOLD","AEM","FNV","WPM","KGC","AU","HL","PAAS","CDE","SSRM","RGLD"],
+  p16:["NOC","HII","LHX","TXT","HEI","KTOS","AXON","LDOS","SAIC","CACI"]
 };
 function applyPack(){
   const k=$("s-pack").value;
