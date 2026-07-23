@@ -856,6 +856,20 @@ function parseRssItems(xmlText, sourceName){
   }catch(e){ return []; }
 }
 
+/* Sembolü/coin adını KELİME SINIRIYLA eşleştir: "ETH" gibi kısa sembollerin
+   "whether"/"together", "SOL"un "solar"/"absolute", "ADA"nın "Canada" gibi
+   alakasız kelimelerin içinde yanlış eşleşip hem haber listesini hem de puanı
+   kirletmesini önler. Sembol başında $ (ör. "$ETH") veya "-USD" gibi ekler
+   sınır sayıldığından yine yakalanır. */
+function titleMentions(title, needles){
+  const t=title.toLowerCase();
+  return needles.some(n=>{
+    if(!n) return false;
+    const esc=n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+    return new RegExp("(^|[^a-z0-9])"+esc+"([^a-z0-9]|$)").test(t);
+  });
+}
+
 /* İlgili coine ait haberleri üç RSS beslemesinden çekip başlıkta sembol veya
    coin adı geçenleri filtreler. Bir besleme başarısız olursa (CORS/ağ)
    sessizce atlanır, diğerleriyle devam edilir. */
@@ -871,10 +885,7 @@ async function fetchNewsForCoin(symBase, coinName, ownWorker){
     }catch(e){ return []; }
   }));
   const all=results.flat();
-  const matched=all.filter(it=>{
-    const t=it.title.toLowerCase();
-    return needles.some(n=>n && t.includes(n));
-  });
+  const matched=all.filter(it=>titleMentions(it.title, needles));
   matched.sort((a,b)=> new Date(b.pubDate)-new Date(a.pubDate));
   return matched.slice(0,20);
 }
@@ -2411,6 +2422,9 @@ function clearList(){
       const saved=JSON.parse(raw);
       if(saved && saved.list && saved.list.length){
         renderResults(saved.list, p, saved.currency, true);
+        /* "tarandı"/"eşik altında" sayaçları kaydedilmiyor; yanıltıcı 0 yerine
+           tire göster (sinyalli/tam eşleşme sayısı gerçek veriden gelir) */
+        $(p+"-s-scanned").textContent="—"; $(p+"-s-gate").textContent="—";
         $(p+"-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
       }
     }catch(e){}
@@ -2427,6 +2441,7 @@ function clearList(){
         $("sc-summary").classList.add("on");
         $("sc-filter").classList.toggle("on", true);
         $("sc-clearbtn").style.display="block";
+        $("sc-s-scanned").textContent="—"; $("sc-s-gate").textContent="—"; // kaydedilmeyen sayaçlar — yanıltıcı 0 yerine tire
         setScalpDir(saved.list[0].dir==="short" ? "short" : "long"); // toggle/buton metnini kaydedilen sonuçla senkronla
         applyFilterScalp();
         $("sc-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
@@ -2445,6 +2460,7 @@ function clearList(){
         $("sh-summary").classList.add("on");
         $("sh-filter").classList.toggle("on", true);
         $("sh-clearbtn").style.display="block";
+        $("sh-s-scanned").textContent="—"; $("sh-s-gate").textContent="—"; // kaydedilmeyen sayaçlar — yanıltıcı 0 yerine tire
         applyFilterShort();
         $("sh-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
       }
