@@ -2436,14 +2436,27 @@ async function analyzeOne(base, tf, sectorCache){
       if(ma50>ma100&&ma100>ma200&&price>ma50){ maL=25; maS=0; }
       if(ma50<ma100&&ma100<ma200&&price<ma50){ maS=25; maL=0; }
     }
-    L+=maL; S+=maS; rows.push(scoreBar("MA dizilimi (50/100/200)",maL,maS));
+    /* (1) aşırı uzama filtresi: fiyat MA50'nin %15+ üstündeyse dizilim (long)
+       ödülü geçersiz — trend güçlü olsa bile fiyat gerilmiş, ortalamaya dönüş
+       riski. maL sıfırlanır ve hafif short'a çevrilir (negatife döner). */
+    let maExt=false;
+    if(ma50!=null && price>ma50*1.15){ maL=0; maS=Math.max(maS,12); maExt=true; }
+    L+=maL; S+=maS; rows.push(scoreBar("MA dizilimi (50/100/200)"+(maExt?" ⚠MA50'den >%15 uzak":""),maL,maS));
     // 2) RSI (max 15)
     let rL=0,rS=0;
     if(rsi!=null){
-      if(rsi>=55&&rsi<=70){rL=15;} else if(rsi>=50){rL=8;}
-      else if(rsi>70&&rsi<=80){rL=6;rS=6;} else if(rsi>80){rS=12;}
-      else if(rsi>=45){rS=8;} else if(rsi>=30){rS=15;}
-      else if(rsi>=20){rL=6;rS=6;} else {rL=12;}
+      /* (2) yüksek-RSI dalları ÖNCE kontrol edilir. Önceki sürümde 'else if(rsi>=50)'
+         daha üstteydi ve >70/>80 dallarını ulaşılamaz kılıyordu — aşırı alım
+         yanlışlıkla long puanı (rL=8) alıyordu. RSI>75 artık long ÜRETMEZ, ceza üretir. */
+      if(rsi>80){rS=15;}              // aşırı alım — long YOK, güçlü ceza
+      else if(rsi>75){rS=12;}         // >75 aşırı alım — long YOK, ceza
+      else if(rsi>70){rL=6;rS=6;}     // 70-75 hafif ısınma, nötr
+      else if(rsi>=55){rL=15;}        // 55-70 sağlıklı momentum → long
+      else if(rsi>=50){rL=8;}         // 50-55 hafif long
+      else if(rsi>=45){rS=8;}         // 45-50 hafif short
+      else if(rsi>=30){rS=15;}        // 30-45 zayıf → short
+      else if(rsi>=20){rL=6;rS=6;}    // 20-30 aşırı satıma yaklaşıyor
+      else {rL=12;}                   // <20 aşırı satım → long (dönüş)
     }
     L+=rL;S+=rS; rows.push(scoreBar(`RSI ${rsi!=null?rsi.toFixed(1):'-'}`,rL,rS));
     // 3) MACD (max 15)
@@ -2481,6 +2494,14 @@ async function analyzeOne(base, tf, sectorCache){
     if(funding!=null && funding>0.0005){ S+=5; rows.push(scoreBar("Funding aşırı (+long kalabalık)",0,5)); }
     else if(funding!=null && funding<-0.0005){ L+=5; rows.push(scoreBar("Funding aşırı (−short kalabalık)",5,0)); }
 
+    /* (3) CVD–fiyat uyuşmazlığı VETO'su (skoru düşürmek yerine yönü geçersiz kıl):
+       fiyat anlamlı yükselirken net SATIŞ baskısı varsa long, fiyat düşerken net
+       ALIŞ baskısı varsa short geçersiz — vetolanan taraf karşı tarafı geçemez. */
+    let cvdVeto="";
+    const priceUp=priceChg>0.001, priceDn=priceChg<-0.001;
+    if(priceUp && !cvdPos){ L=Math.min(L,S); cvdVeto="⛔ CVD vetosu: fiyat ↑ ama net satış baskısı — long geçersiz"; }
+    else if(priceDn && cvdPos){ S=Math.min(S,L); cvdVeto="⛔ CVD vetosu: fiyat ↓ ama net alış baskısı — short geçersiz"; }
+
     L=Math.min(100,L); S=Math.min(100,S);
 
     /* -------- kart -------- */
@@ -2499,7 +2520,8 @@ async function analyzeOne(base, tf, sectorCache){
         <div style="flex:1;text-align:center;background:var(--bg);border:1px solid var(--red);border-radius:10px;padding:10px">
           <div style="font-size:26px;font-weight:800;color:var(--red)">${S}</div><div style="font-size:11px;color:var(--muted)">SHORT /100</div></div>
       </div>
-      <div style="text-align:center;font-weight:700;color:${biasColor};margin-bottom:12px">${bias}</div>
+      <div style="text-align:center;font-weight:700;color:${biasColor};margin-bottom:${cvdVeto?'4px':'12px'}">${bias}</div>
+      ${cvdVeto?`<div style="text-align:center;font-size:12px;color:var(--amber);margin-bottom:12px">${cvdVeto}</div>`:''}
       <div class="badges" style="margin-bottom:10px">
         <span class="badge ${rsi>=50?'on-rev':'on-cap'}">RSI ${rsi!=null?rsi.toFixed(1):'-'}</span>
         <span class="badge ${mac.hist>0?'on-rev':'on-cap'}">MACD ${mac.hist!=null?(mac.hist>0?'▲':'▼'):'-'}</span>
