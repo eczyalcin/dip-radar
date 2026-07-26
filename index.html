@@ -348,6 +348,58 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="empty" id="sd-empty">Dip-scalp kriterine uyan coin yok. Yerel düşüş eşiğini veya katılığı (CORE) gevşetmeyi dene.</div>
 
   <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
+  <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Birikim → <span style="color:var(--amber)">breakout (retest)</span></h1>
+  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Bir süre dar aralıkta birikip yukarı kıran, sonra kırılan seviyeye geri çekilen (retest) coinler · <b>backtest ile ayarlandı</b></p>
+
+  <div class="warnbox">
+    <b>Backtest temelli (modest edge):</b> 12 ay Binance verisinde test edildi. Kritik bulgu: kırılımı <b>kapanışta kovalamak çalışmıyor</b> (edge yok); kırılan tavanın <b>geri-test edilmesinde (pullback)</b> girmek çalışıyor — 11/12 parametre hücresinde in-sample + out-of-sample pozitif. Ama edge <b>modest</b>: işlem başına ~+%0.1-0.3 (tabana göre), kazanma ~%45-51. Dip-scalp'ten zayıf. Ultra-dar aralık gerekmiyor (%10-15 ideal), breakout hacim patlaması gerekmiyor. Giriş <b>tam kırılan seviyede</b> olmalı (sığ pullback'te girmek edge'i öldürüyor). OI/funding yalnızca canlı teyit rozetidir. Kâr garantisi değildir.
+  </div>
+
+  <details class="settings">
+    <summary>Birikim/retest ayarları</summary>
+    <div class="settings-body">
+      <div class="field"><label>Taranacak coin sayısı (hacme göre)</label><input type="number" id="br-topn" value="700" min="10" max="700"></div>
+      <div class="field"><label>Zaman dilimi</label>
+        <select id="br-tf" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
+          <option value="1h" selected>1 saat (önerilen — en dengeli)</option>
+          <option value="4h">4 saat (daha büyük ama rejim-bağımlı)</option>
+        </select>
+      </div>
+      <div class="field"><label>Birikim süresi (saat)</label><input type="number" id="br-d" value="36" min="6" max="240" step="6"></div>
+      <div class="field"><label>Aralık darlığı (% üst sınır)</label><input type="number" id="br-t" value="12" min="3" max="30" step="1"></div>
+      <div class="field"><label>Retest penceresi (saat)</label><input type="number" id="br-r" value="24" min="4" max="120" step="4"></div>
+      <div class="field"><label>Hedef TP (%)</label><input type="number" id="br-tp" value="6" min="1" max="30" step="0.5"></div>
+      <div class="field"><label>Stop SL (%)</label><input type="number" id="br-sl" value="4" min="1" max="20" step="0.5"></div>
+    </div>
+  </details>
+
+  <div class="scanbar">
+    <button class="primary" id="br-scanbtn" onclick="scanRetest()">Birikim/retest taramasını başlat</button>
+    <button class="ghost" id="br-stopbtn" onclick="stopScan()" style="display:none">Durdur</button>
+    <button class="ghost" id="br-clearbtn" onclick="clearResults('br')" style="display:none">Temizle</button>
+  </div>
+
+  <div class="progress" id="br-prog"><i id="br-progbar"></i></div>
+  <div class="status" id="br-status"></div>
+
+  <div class="summary" id="br-summary">
+    <div class="stat"><b id="br-s-scanned">0</b><span>tarandı</span></div>
+    <div class="stat"><b id="br-s-gate">0</b><span>kırılım</span></div>
+    <div class="stat"><b id="br-s-signal">0</b><span>retest sinyali</span></div>
+    <div class="stat"><b id="br-s-full">0</b><span>taze retest</span></div>
+  </div>
+
+  <div class="filterbar" id="br-filter">
+    <div class="fbtn active" data-min="1" onclick="setFilter('br',1)">Tümü</div>
+    <div class="fbtn" data-min="2" onclick="setFilter('br',2)">Taze (bu mumda)</div>
+  </div>
+  <div class="fcount" id="br-fcount"></div>
+
+  <div id="br-results"></div>
+  <button class="ghost morebtn" id="br-morebtn" onclick="showMore('br')" style="display:none">Daha fazla göster</button>
+  <div class="empty" id="br-empty">Retest kurulumu olan coin yok. Aralık darlığını gevşetmeyi (ör. %15) veya retest penceresini büyütmeyi dene.</div>
+
+  <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
   <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">Coin <span style="color:var(--amber)">analiz</span></h1>
   <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Çoklu coin · çoklu zaman dilimi · kural-tabanlı Long/Short skoru (kâr garantisi değil)</p>
 
@@ -499,11 +551,11 @@ let abortFlag = false;
 
 /* ---------- sonuç filtreleme / sayfalama / temizleme ---------- */
 const rawResults = {};             // prefix -> {list, currency}
-const filterMin = {c:2, s:2, sc:6, sh:3, sd:1}; // varsayılan eşikler
+const filterMin = {c:2, s:2, sc:6, sh:3, sd:1, br:1}; // varsayılan eşikler
 const PAGE_SIZE = 25;
-const shownCount = {c:PAGE_SIZE, s:PAGE_SIZE, sc:PAGE_SIZE, sh:PAGE_SIZE, sd:PAGE_SIZE};
+const shownCount = {c:PAGE_SIZE, s:PAGE_SIZE, sc:PAGE_SIZE, sh:PAGE_SIZE, sd:PAGE_SIZE, br:PAGE_SIZE};
 const EMPTY_MSG = {};
-["c","s","sc","sh","sd","lc"].forEach(p=>{ const el=$(p+"-empty"); if(el) EMPTY_MSG[p]=el.textContent; });
+["c","s","sc","sh","sd","br","lc"].forEach(p=>{ const el=$(p+"-empty"); if(el) EMPTY_MSG[p]=el.textContent; });
 
 /* son taramayı localStorage'a yaz — sayfa yenilenince kaybolmasın */
 function persistResults(prefix){
@@ -526,6 +578,7 @@ function setFilter(prefix, min){
   if(prefix==="sc") applyFilterScalp();
   else if(prefix==="sh") applyFilterShort();
   else if(prefix==="sd") applyFilterScalpDip();
+  else if(prefix==="br") applyFilterRetest();
   else applyFilter(prefix);
 }
 
@@ -534,6 +587,7 @@ function showMore(prefix){
   if(prefix==="sc") applyFilterScalp();
   else if(prefix==="sh") applyFilterShort();
   else if(prefix==="sd") applyFilterScalpDip();
+  else if(prefix==="br") applyFilterRetest();
   else applyFilter(prefix);
 }
 
@@ -2117,6 +2171,165 @@ async function scanScalpDip(){
   }
 }
 
+/* ================= BİRİKİM → BREAKOUT (RETEST) =================
+   Bir süre dar aralıkta biriken, yukarı kıran ve kırılan seviyeye geri
+   çekilen (retest) coinleri yakalar. 12 ay Binance verisiyle backtest:
+   kırılımı KAPANIŞTA kovalamak edge vermiyor; kırılan seviyenin RETEST'inde
+   (pullback) girmek 11/12 parametre hücresinde IS+OOS pozitif (modest edge,
+   kazanma ~%45-51). Ayarlar: 1h, birikim ~36s, aralık ~%12, retest ~24s,
+   giriş TAM seviyede. OI/funding yalnızca canlı teyit rozeti. */
+function retestParams(){
+  const tf=$("br-tf").value; const tfH=tf==="4h"?4:1;
+  const Dh=parseFloat($("br-d").value), Rh=parseFloat($("br-r").value);
+  return {
+    topN:parseInt($("br-topn").value), tf, oiPeriod: tf==="4h"?"4h":"1h",
+    Dbars:Math.max(5,Math.round(Dh/tfH)), Rbars:Math.max(2,Math.round(Rh/tfH)),
+    tMax:parseFloat($("br-t").value)/100,
+    tp:parseFloat($("br-tp").value)/100, sl:parseFloat($("br-sl").value)/100
+  };
+}
+
+/* son bara göre değerlendirir. Dönüş:
+   null = hiç uygun (yakın) kırılım yok / başarısız kırılım
+   {status:'breakout'} = kırılım var ama henüz retest bölgesinde değil
+   {status:'retest', score, ...} = şu an seviyeye geri çekilmiş (giriş anı) */
+function analyzeRetest(sD, p){
+  if(!sD) return null;
+  const {h,l,c}=sD; const n=c.length; const D=p.Dbars, R=p.Rbars;
+  if(n < 2*D + 5) return null;
+  /* en YAKIN uygun kırılımı bul (retest penceresi henüz dolmamış olacak kadar taze) */
+  const oldest=Math.max(D, n-1-(R+2));
+  let b=-1, level=0, tight=0, hi=0, lo=0;
+  for(let cand=n-2; cand>=oldest; cand--){
+    let H=-Infinity, L=Infinity;
+    for(let j=cand-D;j<cand;j++){ if(h[j]>H)H=h[j]; if(l[j]<L)L=l[j]; }
+    if(!isFinite(H)||L<=0) continue;
+    const t=(H-L)/L;
+    if(t>p.tMax) continue;
+    if(c[cand] > H*1.005){ b=cand; level=H; tight=t; hi=H; lo=L; break; }
+  }
+  if(b<0) return null;
+  for(let j=b+1;j<n;j++){ if(c[j] < level*0.97) return null; } // başarısız kırılım
+  let minLow=Infinity; for(let j=b+1;j<n;j++){ if(l[j]<minLow) minLow=l[j]; }
+  const cur=c[n-1];
+  const retestTouched = minLow <= level*1.005;      // seviyeye geri döndü mü
+  const inZone = cur>=level*0.98 && cur<=level*1.03; // şu an seviyeye yakın mı
+  if(retestTouched && inZone){
+    const fresh = l[n-1] <= level*1.005;             // bu mumda seviyeye dokundu
+    return {status:'retest', score:fresh?2:1, level, hi, lo, tight, barsAgo:(n-1-b), cur};
+  }
+  return {status:'breakout', level, hi, lo, tight, barsAgo:(n-1-b), cur};
+}
+
+function renderRetestCard(r){
+  const g=r.sig, fresh=g.score===2;
+  const distPct=(g.cur/g.level-1)*100;
+  return `<div class="card ${fresh?'full-match':''}" data-symbol="${escapeHtml(r.symbol)}">
+    <div class="card-top">
+      <div class="sym linkable" data-symbol="${escapeHtml(r.symbol)}" title="Coin analiz'e git">${escapeHtml(r.symbol)}${fresh?'<span class="fullmatch-tag">TAZE RETEST</span>':''}</div>
+      <div class="price mono">${fmtPrice(r.price)} USDT</div>
+    </div>
+    <div class="badges">
+      <span class="badge on-rev">Kırılım ${g.barsAgo} mum önce</span>
+      <span class="badge ${fresh?'on-div':''}">${fresh?'Retest: bu mumda ✓':'Retest bölgesinde'}</span>
+      <span class="badge">Aralık %${(g.tight*100).toFixed(1)}</span>
+      ${r.oi!=null?`<span class="badge ${r.oi>=0?'on-rev':'on-cap'}">OI %${(r.oi*100).toFixed(2)}</span>`:''}
+      ${r.funding!=null?`<span class="badge on-div">Funding %${(r.funding*100).toFixed(3)}</span>`:''}
+    </div>
+    <div class="detail">Konsolidasyon: <b>${fmtPrice(g.lo)} – ${fmtPrice(g.hi)}</b> · kırılan seviye <b>${fmtPrice(g.level)}</b> · şu an seviyeye %${distPct>=0?'+':''}${distPct.toFixed(1)}
+      <div style="margin-top:6px;color:var(--muted)">Giriş: seviyede (${fmtPrice(g.level)}) · hedef +%${(r.tp*100).toFixed(1)} / stop −%${(r.sl*100).toFixed(1)}. Backtest: modest edge, kazanma ~%45-51 — kâr garantisi değildir.</div>
+    </div>
+  </div>`;
+}
+
+function applyFilterRetest(){
+  const data=rawResults.br;
+  const box=$("br-results"), emptyEl=$("br-empty"), countEl=$("br-fcount"), moreBtn=$("br-morebtn");
+  if(!data || !data.list.length){
+    box.innerHTML=""; moreBtn.style.display="none";
+    emptyEl.textContent=EMPTY_MSG.br; emptyEl.classList.toggle("on", !!data); countEl.textContent="";
+    return;
+  }
+  const min=filterMin.br;
+  const filtered=data.list.filter(r=>r.sig.score>=min);
+  const shown=filtered.slice(0, shownCount.br);
+  box.innerHTML=shown.map(renderRetestCard).join("");
+  const remaining=filtered.length-shown.length;
+  moreBtn.style.display=remaining>0?"block":"none";
+  moreBtn.textContent=`Daha fazla göster (+${remaining})`;
+  emptyEl.classList.toggle("on", filtered.length===0);
+  emptyEl.textContent = filtered.length===0 ? 'Bu filtrede sonuç yok. "Tümü"nü dene.' : EMPTY_MSG.br;
+  countEl.textContent = `${shown.length} / ${filtered.length} gösteriliyor (toplam ${data.list.length} retest)`;
+}
+
+async function scanRetest(){
+  abortFlag=false;
+  beginScan();
+  const p=retestParams();
+  const btn=$("br-scanbtn"), stop=$("br-stopbtn");
+  btn.disabled=true; stop.style.display="block";
+  $("br-prog").classList.add("on"); $("br-progbar").style.width="0%";
+  $("br-results").innerHTML=""; $("br-empty").classList.remove("on");
+  $("br-summary").classList.remove("on");
+  $("br-filter").classList.remove("on"); $("br-clearbtn").style.display="none"; $("br-morebtn").style.display="none"; rawResults.br=null;
+  const status=$("br-status");
+  const results=[]; let brkCount=0, done=0;
+
+  try{
+    status.textContent="Futures sembol listesi alınıyor…";
+    const tr=await fetch(`${FUT}/fapi/v1/ticker/24hr`);
+    if(!tr.ok) throw new Error("Futures ticker hatası: "+tr.status);
+    const tk=await tr.json();
+    const universe=tk
+      .filter(t=>t.symbol.endsWith("USDT"))
+      .filter(t=>!/(UP|DOWN|BULL|BEAR)USDT$/.test(t.symbol))
+      .filter(t=>parseFloat(t.quoteVolume)>0)
+      .sort((a,b)=>parseFloat(b.quoteVolume)-parseFloat(a.quoteVolume))
+      .slice(0,p.topN)
+      .map(t=>({symbol:t.symbol, price:parseFloat(t.lastPrice)}));
+
+    await pool(universe, 4, async (u)=>{
+      try{
+        const sD=await fetchFutOHLCV(u.symbol, p.tf, 220);
+        const sig=analyzeRetest(sD, p);
+        if(!sig) return;                    // uygun (taze) kırılım yok
+        brkCount++;                         // kırılım bulundu
+        if(sig.status!=="retest") return;   // kırılım var ama henüz retest değil
+        const [oi, funding] = await Promise.all([
+          fetchOIchange(u.symbol, p.oiPeriod),
+          fetchFunding(u.symbol)
+        ]);
+        results.push({symbol:u.symbol.replace("USDT","/USDT"), price:u.price, sig, oi, funding, tp:p.tp, sl:p.sl});
+      }catch(e){ /* tek sembol hatası taramayı durdurmasın */ }
+      finally{
+        done++;
+        $("br-progbar").style.width=(done/universe.length*100).toFixed(1)+"%";
+        status.textContent=`${u.symbol} · ${done}/${universe.length}`;
+        $("br-s-scanned").textContent=done;
+        $("br-s-gate").textContent=brkCount;
+      }
+    });
+
+    results.sort((a,b)=> b.sig.score-a.sig.score || a.sig.barsAgo-b.sig.barsAgo);
+    rawResults.br={list:results};
+    shownCount.br=PAGE_SIZE;
+    $("br-s-signal").textContent=results.length;
+    $("br-s-full").textContent=results.filter(r=>r.sig.score===2).length;
+    $("br-summary").classList.add("on");
+    $("br-filter").classList.toggle("on", results.length>0);
+    $("br-clearbtn").style.display=results.length>0?"block":"none";
+    persistResults("br");
+    applyFilterRetest();
+    status.textContent=abortFlag?"Tarama durduruldu.":"Tarama tamamlandı.";
+  }catch(e){
+    status.innerHTML=`<span class="err">Hata: ${e.message}. Binance futures API'sine erişilemedi (hız sınırı veya bölge kısıtı olabilir).</span>`;
+  }finally{
+    btn.disabled=false; stop.style.display="none";
+    $("br-prog").classList.remove("on");
+    endScan();
+  }
+}
+
 /* ================= TEPE (SHORT) SİNYAL ================= */
 
 /* günlük OHLCV + taker-buy hacmi — futures'tan (funding/OI ile aynı evren) */
@@ -2725,6 +2938,24 @@ function clearList(){
         $("sd-s-scanned").textContent="—"; $("sd-s-gate").textContent="—"; // kaydedilmeyen sayaçlar — yanıltıcı 0 yerine tire
         applyFilterScalpDip();
         $("sd-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
+      }
+    }catch(e){}
+  }
+  const rawBr=store.get("results:br","");
+  if(rawBr){
+    try{
+      const saved=JSON.parse(rawBr);
+      if(saved && saved.list && saved.list.length){
+        rawResults.br={list:saved.list};
+        shownCount.br=PAGE_SIZE;
+        $("br-s-signal").textContent=saved.list.length;
+        $("br-s-full").textContent=saved.list.filter(r=>r.sig&&r.sig.score===2).length;
+        $("br-summary").classList.add("on");
+        $("br-filter").classList.toggle("on", true);
+        $("br-clearbtn").style.display="block";
+        $("br-s-scanned").textContent="—"; $("br-s-gate").textContent="—"; // kaydedilmeyen sayaçlar
+        applyFilterRetest();
+        $("br-status").textContent="Kaydedilmiş son tarama sonucu · "+new Date(saved.ts).toLocaleString("tr-TR");
       }
     }catch(e){}
   }
