@@ -421,7 +421,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <details class="settings" open>
     <summary>Anahtar, liste ve ayarlar</summary>
     <div class="settings-body">
-      <div class="field full" id="s-fmp-only"><label>FMP API anahtarı</label><input type="password" id="s-key" placeholder="apikey"></div>
+      <div class="field full" id="s-fmp-only"><label>FMP API anahtarı <span onclick="var k=document.getElementById('s-key');if(k.type==='password'){k.type='text';this.textContent='Gizle';}else{k.type='password';this.textContent='Göster';}" style="color:var(--blue);cursor:pointer;font-size:11px;margin-left:8px">Göster</span></label><input type="password" id="s-key" placeholder="apikey"></div>
       <div class="field full" id="s-pack-only"><label>Hazır paket seç (kutuyu doldurur)</label>
         <select id="s-pack" onchange="applyPack()" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
           <option value="">— Manuel —</option>
