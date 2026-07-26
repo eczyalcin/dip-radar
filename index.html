@@ -2288,9 +2288,13 @@ async function scanRetest(){
       .slice(0,p.topN)
       .map(t=>({symbol:t.symbol, price:parseFloat(t.lastPrice)}));
 
+    /* çekilecek mum sayısı D/R'ye göre ölçeklenir: analyzeRetest n≥2·Dbars+5
+       ister; büyük "birikim süresi" ayarında sabit 220 yetmez, sessizce boş
+       dönerdi. En az 220, en çok 1500 (Binance limiti). */
+    const klimit=Math.min(1500, Math.max(220, 2*p.Dbars + p.Rbars + 30));
     await pool(universe, 4, async (u)=>{
       try{
-        const sD=await fetchFutOHLCV(u.symbol, p.tf, 220);
+        const sD=await fetchFutOHLCV(u.symbol, p.tf, klimit);
         const sig=analyzeRetest(sD, p);
         if(!sig) return;                    // uygun (taze) kırılım yok
         brkCount++;                         // kırılım bulundu
