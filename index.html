@@ -414,6 +414,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
       </div>
     </div>
     <div class="field full"><label>Coin(ler) (virgülle ayır; ör. BTC, ETH, SOL)</label><input type="text" id="an-sym" placeholder="BTC, ETH, SOL" autocapitalize="characters"></div>
+    <div class="field full"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;color:var(--text);font-size:13px"><input type="checkbox" id="an-onchain" style="width:18px;height:18px;accent-color:var(--amber);flex:none"> On-chain metrikleri skora kat (Moralis · yalnız EVM token'ları · aşağıdaki On-chain bölümündeki anahtar gerekir)</label></div>
   </div>
   <p class="hint">Seçtiğin her coin, seçtiğin her zaman dilimiyle ayrı ayrı taranır (ör. 3 coin × 2 zaman dilimi = 6 kart). Çok sayıda kombinasyon taramayı yavaşlatabilir ve API hız sınırına takılabilir.</p>
 
@@ -476,6 +477,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
         <option value="holders" selected>Holder istatistikleri</option>
         <option value="swaps">Whale DEX swap'ları</option>
         <option value="analytics">Alım/satım hacmi (analytics)</option>
+        <option value="transfers">Transferler (borsa giriş/çıkış)</option>
       </select>
     </div>
     <div class="field"><label>Min USD (swap filtresi)</label><input type="number" id="oc-minusd" value="10000" min="0" step="1000"></div>
@@ -1377,6 +1379,56 @@ function renderAnalytics(j, ctx){
     + summary + table + ocRaw(j) + `</div>`;
 }
 
+/* Task 1: borsa giriş/çıkış akışı — transfers endpoint + adres etiketleri.
+   'to' bir borsa ise GİRİŞ (satış baskısı olabilir), 'from' bir borsa ise
+   ÇIKIŞ (çekim/birikim olabilir). Moralis adres etiketi (entity/label)
+   döndürmezse sınıflandırma yapılamaz — ham veriyle sonradan sabitlenir. */
+const EXCH_RE=/binance|coinbase|okx|okex|kraken|bybit|kucoin|gate\.?io|bitfinex|huobi|htx|mexc|bitget|crypto\.?com|gemini|upbit|bithumb|bitstamp|deribit|poloniex|bitmart|whitebit|lbank|probit/i;
+function txLabel(t, side){ let e=t[side+"_address_entity"]??t[side+"AddressEntity"]??t[side+"_address_label"]??t[side+"AddressLabel"]; if(e&&typeof e==="object")e=e.name||e.label||e.entity||""; return e?String(e):""; }
+function renderTransfers(j, ctx, price, minUsd, limit){
+  let arr=Array.isArray(j)?j:(j.result||j.transfers||j.data||[]); if(!Array.isArray(arr))arr=[];
+  const amtOf=t=>{ let a=num(t.value_decimal ?? t.valueDecimal); if(a!=null)return a; const raw=num(t.value); const dec=num(t.token_decimals ?? t.tokenDecimals) ?? 18; return raw!=null? raw/Math.pow(10,dec):null; };
+  const usdOf=t=>{ const d=num(t.value_usd ?? t.valueUsd ?? t.usdValue); if(d!=null)return d; const a=amtOf(t); return (a!=null&&price!=null)? a*price:null; };
+  const rows=arr.map(t=>{ const u=usdOf(t); const fl=txLabel(t,"from"), tl=txLabel(t,"to");
+    let dir="normal",exch=""; if(EXCH_RE.test(tl)){dir="in";exch=tl;} else if(EXCH_RE.test(fl)){dir="out";exch=fl;} return {t,u,dir,exch}; });
+  const anyLabel=arr.some(t=>txLabel(t,"from")||txLabel(t,"to"));
+  const anyEx=rows.some(r=>r.dir!=="normal");
+  let inUsd=0,outUsd=0,inN=0,outN=0;
+  for(const r of rows){ if(r.dir==="in"){inUsd+=r.u||0;inN++;} else if(r.dir==="out"){outUsd+=r.u||0;outN++;} }
+  const shown=rows.filter(r=>r.u==null||Math.abs(r.u)>=minUsd).sort((a,b)=>Math.abs(b.u||0)-Math.abs(a.u||0)).slice(0,limit);
+  let html=`<div class="card"><div class="card-top"><div class="sym">${escapeHtml(ctx.name)} · transferler (borsa akışı)</div><div class="price">${escapeHtml(ctx.chain)}</div></div>`;
+  if(anyEx){ const net=outUsd-inUsd, acc=net>=0;
+    html+=`<div class="detail" style="margin-bottom:8px">Son ${arr.length} transferde borsa akışı: <span style="color:var(--red)">giriş ${cUsd(inUsd)} (${inN})</span> · <span style="color:var(--green)">çıkış ${cUsd(outUsd)} (${outN})</span> → <b style="color:${acc?'var(--green)':'var(--red)'}">net ${acc?'çıkış (birikim eğilimi)':'giriş (satış baskısı)'} ${cUsd(Math.abs(net))}</b></div>`;
+  } else {
+    html+=`<div class="detail" style="margin-bottom:8px">${arr.length} transfer alındı. ${anyLabel?'Bu pencerede borsa etiketli adres görünmüyor.':'Moralis adres etiketi döndürmedi — borsa sınıflandırması yapılamadı. "ham veri"yi bana gönder, alanı sabitleyeyim.'}</div>`;
+  }
+  html+=shown.map(({t,u,dir,exch})=>{
+    const from=t.from_address||t.fromAddress||t.from||"", to=t.to_address||t.toAddress||t.to||"";
+    const ts=t.block_timestamp||t.blockTimestamp||t.timestamp||"";
+    const tag=dir==="in"?`<span class="badge on-cap">→ Borsa${exch?': '+escapeHtml(exch.slice(0,14)):''}</span>`:(dir==="out"?`<span class="badge on-rev">← Borsa${exch?': '+escapeHtml(exch.slice(0,14)):''}</span>`:"");
+    return `<div class="detail" style="border-top:1px solid var(--line);padding-top:6px;margin-top:6px">
+      ${tag} ${u!=null?`<b>${cUsd(u)}</b> · `:''}<span class="mono" style="font-size:11px">${escapeHtml(String(from).slice(0,8))}…→${escapeHtml(String(to).slice(0,8))}…</span> <span style="color:var(--muted)">${escapeHtml(String(ts).slice(0,19))}</span></div>`;
+  }).join("");
+  html+=ocRaw(Array.isArray(j)?{result:arr.slice(0,2)}:{...j, result:(arr||[]).slice(0,2)})+`</div>`;
+  return html;
+}
+
+/* Task 3: Coin analiz için on-chain metrik çeker (coin başına cache).
+   Bilinen alan yapısı (canlı testte doğrulandı): analytics.totalBuyVolume/
+   totalSellVolume, holders.holderChange. Anahtar yoksa/EVM değilse {error}. */
+async function fetchOnchainForAnalyze(base){
+  const key=((($("oc-key")&&$("oc-key").value)||store.get("moraliskey",""))||"").trim();
+  if(!key) return {error:"Moralis anahtarı yok"};
+  try{
+    const ctx=await resolveOnchainContract(base, "auto");
+    const [an, ho]=await Promise.allSettled([
+      moralisGet(`/tokens/${ctx.address}/analytics?chain=${ctx.chain}`, key),
+      moralisGet(`/erc20/${ctx.address}/holders?chain=${ctx.chain}`, key)
+    ]);
+    return { ctx, analytics: an.status==="fulfilled"?an.value:null, holders: ho.status==="fulfilled"?ho.value:null };
+  }catch(e){ return {error:e.message}; }
+}
+
 async function scanOnchain(){
   const sym=$("oc-sym").value.trim().toUpperCase().replace(/USDT$/,"");
   const key=$("oc-key").value.trim();
@@ -1397,6 +1449,13 @@ async function scanOnchain(){
     let j, html;
     if(type==="holders"){ j=await moralisGet(`/erc20/${ctx.address}/holders?chain=${ctx.chain}`, key); html=renderHolders(j, ctx); }
     else if(type==="swaps"){ j=await moralisGet(`/erc20/${ctx.address}/swaps?chain=${ctx.chain}&order=DESC&limit=100`, key); html=renderSwaps(j, ctx, minUsd, limit); }
+    else if(type==="transfers"){
+      const [tr, pr]=await Promise.all([
+        moralisGet(`/erc20/${ctx.address}/transfers?chain=${ctx.chain}&order=DESC&limit=100`, key),
+        moralisGet(`/erc20/${ctx.address}/price?chain=${ctx.chain}`, key).catch(()=>null)
+      ]);
+      j=tr; html=renderTransfers(tr, ctx, (pr&&num(pr.usdPrice)!=null)?num(pr.usdPrice):null, minUsd, limit);
+    }
     else { j=await moralisGet(`/tokens/${ctx.address}/analytics?chain=${ctx.chain}`, key); html=renderAnalytics(j, ctx); }
     $("oc-progbar").style.width="100%";
     out.innerHTML=html;
@@ -2849,7 +2908,7 @@ function toggleTfChip(cb){
 }
 
 /* tek coin × tek zaman dilimi analizi — html kart döndürür, DOM'a dokunmaz */
-async function analyzeOne(base, tf, sectorCache){
+async function analyzeOne(base, tf, sectorCache, onchainCache){
   const symbol=base+"USDT";
   try{
     const spot=await fetchKlinesTB(SPOT, symbol, tf, 260);
@@ -2884,6 +2943,13 @@ async function analyzeOne(base, tf, sectorCache){
 
     /* FMP kripto haberleri: sadece bağlam amaçlı, skora katkı vermez */
     const news=await newsFor(base, 3);
+
+    /* on-chain (opsiyonel; checkbox + Moralis anahtarı; coin başına cache) */
+    let onchain=null;
+    if(onchainCache && $("an-onchain") && $("an-onchain").checked){
+      if(!onchainCache.has(base)) onchainCache.set(base, fetchOnchainForAnalyze(base));
+      onchain=await onchainCache.get(base);
+    }
 
     /* -------- kural-tabanlı skor -------- */
     let L=0,S=0; const rows=[];
@@ -2951,6 +3017,21 @@ async function analyzeOne(base, tf, sectorCache){
     // funding: aşırı pozitif = kalabalık long = short'a hafif katkı (bilgi + max 5)
     if(funding!=null && funding>0.0005){ S+=5; rows.push(scoreBar("Funding aşırı (+long kalabalık)",0,5)); }
     else if(funding!=null && funding<-0.0005){ L+=5; rows.push(scoreBar("Funding aşırı (−short kalabalık)",5,0)); }
+
+    /* 9) On-chain (opsiyonel): DEX net alım baskısı (24s) + holder büyümesi (7g) */
+    if(onchain && !onchain.error){
+      const a=onchain.analytics, h=onchain.holders;
+      const bv=a&&a.totalBuyVolume?num(a.totalBuyVolume["24h"]):null, sv=a&&a.totalSellVolume?num(a.totalSellVolume["24h"]):null;
+      if(bv!=null && sv!=null && sv>0){ const r=bv/sv; let oL=0,oS=0;
+        if(r>=1.15)oL=10; else if(r<=0.87)oS=10; else if(r>=1.0)oL=5; else oS=5;
+        L+=oL;S+=oS; rows.push(scoreBar(`On-chain DEX net baskı (24s al/sat ${r.toFixed(2)})`,oL,oS)); }
+      const hc=h&&(h.holderChange||h.holder_change); const o7=hc&&hc["7d"];
+      const pct=o7?num(o7.changePercent??o7.change_percent):null;
+      if(pct!=null){ let hL=0,hS=0; if(pct>=0.3)hL=8; else if(pct>0)hL=4; else if(pct<=-0.3)hS=8; else if(pct<0)hS=4;
+        L+=hL;S+=hS; rows.push(scoreBar(`Holder büyümesi 7g (${(pct>=0?'+':'')+pct.toFixed(2)}%)`,hL,hS)); }
+    } else if(onchain && onchain.error){
+      rows.push(scoreBar("On-chain: uygulanamadı ("+escapeHtml(onchain.error.slice(0,40))+")",0,0));
+    }
 
     /* (3) CVD–fiyat uyuşmazlığı VETO'su (skoru düşürmek yerine yönü geçersiz kıl):
        fiyat anlamlı yükselirken net SATIŞ baskısı varsa long, fiyat düşerken net
@@ -3050,11 +3131,12 @@ async function analyzeCoin(){
   symbols.forEach(sym=>tfs.forEach(tf=>tasks.push({sym,tf})));
   const results=new Array(tasks.length);
   const sectorCache=new Map();
+  const onchainCache=new Map();
   let done=0;
   status.textContent=`0/${tasks.length} kombinasyon taranıyor…`;
 
   await pool(tasks, 3, async (t, i)=>{
-    results[i]=await analyzeOne(t.sym, t.tf, sectorCache);
+    results[i]=await analyzeOne(t.sym, t.tf, sectorCache, onchainCache);
     done++;
     $("an-progbar").style.width=(done/tasks.length*100).toFixed(1)+"%";
     status.textContent=`${t.sym} ${t.tf} · ${done}/${tasks.length}`;
