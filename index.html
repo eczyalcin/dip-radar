@@ -487,6 +487,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
     </div>
     <div class="field"><label>Min USD (swap filtresi)</label><input type="number" id="oc-minusd" value="10000" min="0" step="1000"></div>
     <div class="field"><label>Kaç kayıt (swap listesi)</label><input type="number" id="oc-limit" value="50" min="5" max="300"></div>
+    <div class="field full"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;color:var(--text);font-size:13px"><input type="checkbox" id="oc-binance-only" style="width:18px;height:18px;accent-color:var(--amber);flex:none"> Trend listesinde yalnız Binance'de listeli olanları göster</label></div>
   </div>
 
   <div class="scanbar">
@@ -1498,18 +1499,37 @@ function renderWallet(data, w, chain){
   return html;
 }
 
-/* Trend / en çok yükselen tokenlar */
-function renderTrending(j, chain){
+/* Binance'de işlem gören tüm base-asset sembolleri (bir kez çekilip cache) —
+   trend listesini "Binance'de listeli mi" diye süzmek için. */
+let binanceBaseCache=null;
+async function binanceBaseAssets(){
+  if(binanceBaseCache) return binanceBaseCache;
+  try{
+    const r=await fetch("https://api.binance.com/api/v3/exchangeInfo?permissions=SPOT");
+    if(!r.ok) return null;
+    const j=await r.json();
+    const s=new Set((j.symbols||[]).filter(x=>x.status==="TRADING").map(x=>String(x.baseAsset).toUpperCase()));
+    if(s.size) binanceBaseCache=s;
+    return binanceBaseCache;
+  }catch(e){ return null; }
+}
+
+/* Trend / en çok yükselen tokenlar (opsiyonel Binance filtresi) */
+function renderTrending(j, chain, binSet, binOnly){
   let arr=Array.isArray(j)?j:(j.result||j.tokens||j.data||[]); if(!Array.isArray(arr))arr=[];
   const sym=t=>t.token_symbol||t.symbol||"?", nm=t=>t.token_name||t.name||"";
   const price=t=>num(t.price_usd??t.usdPrice??t.usd_price??t.price);
   const chg=t=>num(t.price_change_24h??t.pricePercentChange24h??t.price_24h_percent_change??(t.pricePercentChange&&t.pricePercentChange["24h"]));
-  let html=`<div class="card"><div class="card-top"><div class="sym">Trend tokenlar</div><div class="price">${escapeHtml(chain)}</div></div>`;
-  if(!arr.length) html+=`<div class="detail" style="color:var(--muted)">Trend listesi okunamadı — ham veriye bak.</div>`;
+  const total=arr.length;
+  if(binSet) arr=arr.filter(t=>binSet.has(String(sym(t)).toUpperCase()));
+  let html=`<div class="card"><div class="card-top"><div class="sym">Trend tokenlar${binSet?" · Binance filtreli":""}</div><div class="price">${escapeHtml(chain)}</div></div>`;
+  if(binOnly && !binSet) html+=`<div class="detail" style="margin-bottom:6px;color:var(--amber)">Binance sembol listesi alınamadı — filtre uygulanamadı, hepsi gösteriliyor.</div>`;
+  else if(binSet) html+=`<div class="detail" style="margin-bottom:6px;color:var(--muted)">Binance'de listeli: ${arr.length}/${total} token${arr.length===0?" (birçok trend token yeni/DEX'e özel olabilir — 'Kaç kayıt'ı artırıp tekrar dene)":""}</div>`;
+  if(!arr.length && !binSet) html+=`<div class="detail" style="color:var(--muted)">Trend listesi okunamadı — ham veriye bak.</div>`;
   html+=arr.slice(0,50).map(t=>{ const c=chg(t);
     return `<div class="detail" style="border-top:1px solid var(--line);padding-top:5px;margin-top:5px"><b>${escapeHtml(sym(t))}</b> <span style="color:var(--muted)">${escapeHtml(nm(t).slice(0,24))}</span>${price(t)!=null?` · ${fmtPrice(price(t))}`:''}${c!=null?` · <span style="color:${c>=0?'var(--green)':'var(--red)'}">${(c>=0?'+':'')+c.toFixed(1)}%</span>`:''}</div>`;
   }).join("");
-  html+=ocRaw(Array.isArray(j)?{result:arr.slice(0,3)}:{...j,result:(arr||[]).slice(0,3)})+`</div>`;
+  html+=ocRaw(Array.isArray(j)?{result:(j).slice?j.slice(0,3):[]}:{...j,result:((j.result||j.tokens||j.data)||[]).slice(0,3)})+`</div>`;
   return html;
 }
 
@@ -1541,8 +1561,12 @@ async function scanOnchain(){
       label=`Cüzdan ${w.slice(0,10)}… (${chainNC})`;
     } else if(type==="trending"){
       status.textContent="Trend tokenlar alınıyor…";
-      const j=await moralisGet(`/tokens/trending?chain=${chainNC}&limit=${limit}`, key);
-      html=renderTrending(j, chainNC); label=`Trend (${chainNC})`;
+      const binOnly=$("oc-binance-only")&&$("oc-binance-only").checked;
+      const [j, binSet]=await Promise.all([
+        moralisGet(`/tokens/trending?chain=${chainNC}&limit=${limit}`, key),
+        binOnly?binanceBaseAssets():Promise.resolve(null)
+      ]);
+      html=renderTrending(j, chainNC, binSet, binOnly); label=`Trend (${chainNC})${binOnly?" · Binance filtreli":""}`;
     } else {
       const sym=$("oc-sym").value.trim().toUpperCase().replace(/USDT$/,"");
       if(!sym) throw new Error("Bir coin sembolü gir (ör. PEPE).");
