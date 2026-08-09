@@ -23,7 +23,10 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Text","Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.45}
-body{padding:env(safe-area-inset-top) 14px calc(env(safe-area-inset-bottom) + 24px)}
+/* yalnız dikey kaydırma: yatay taşmayı engelle + uzun metin/adresleri sar */
+html,body{overflow-x:hidden;max-width:100%}
+body{padding:env(safe-area-inset-top) 14px calc(env(safe-area-inset-bottom) + 24px);overflow-wrap:break-word;word-break:break-word}
+img,svg,video,canvas,iframe{max-width:100%;height:auto}
 .mono{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
 
 header{padding:18px 2px 12px}
@@ -47,6 +50,9 @@ details.settings[open] summary::after{transform:rotate(180deg)}
 .field.full{grid-column:1 / -1}
 .field label{font-size:11.5px;color:var(--muted)}
 .field input:not([type="checkbox"]),.field textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px;width:100%;font-family:inherit}
+/* select'ler içeriğe göre genişleyip ekranı taşırmasın (uzun seçenek metinleri) */
+select{width:100%;max-width:100%}
+.field select{width:100%}
 .field textarea{min-height:64px;resize:vertical}
 .field input:focus,.field textarea:focus{outline:2px solid var(--amber);outline-offset:-1px}
 
