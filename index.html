@@ -1516,16 +1516,20 @@ async function binanceBaseAssets(){
 
 /* Trend / en çok yükselen tokenlar (opsiyonel Binance filtresi) */
 function renderTrending(j, chain, binSet, binOnly){
-  let arr=Array.isArray(j)?j:(j.result||j.tokens||j.data||[]); if(!Array.isArray(arr))arr=[];
+  let raw=Array.isArray(j)?j:(j.result||j.tokens||j.data||[]); if(!Array.isArray(raw))raw=[];
   const sym=t=>t.token_symbol||t.symbol||"?", nm=t=>t.token_name||t.name||"";
   const price=t=>num(t.price_usd??t.usdPrice??t.usd_price??t.price);
   const chg=t=>num(t.price_change_24h??t.pricePercentChange24h??t.price_24h_percent_change??(t.pricePercentChange&&t.pricePercentChange["24h"]));
-  const total=arr.length;
+  /* sıfır-değerli (0% değişim ya da 0 fiyat) tokenları gizle; alan okunamayıp
+     null dönenler gizlenmez (yanlışlıkla hepsini elememek için) */
+  let arr=raw.filter(t=> chg(t)!==0 && price(t)!==0);
+  const nzTotal=arr.length;
   if(binSet) arr=arr.filter(t=>binSet.has(String(sym(t)).toUpperCase()));
   let html=`<div class="card"><div class="card-top"><div class="sym">Trend tokenlar${binSet?" · Binance filtreli":""}</div><div class="price">${escapeHtml(chain)}</div></div>`;
-  if(binOnly && !binSet) html+=`<div class="detail" style="margin-bottom:6px;color:var(--amber)">Binance sembol listesi alınamadı — filtre uygulanamadı, hepsi gösteriliyor.</div>`;
-  else if(binSet) html+=`<div class="detail" style="margin-bottom:6px;color:var(--muted)">Binance'de listeli: ${arr.length}/${total} token${arr.length===0?" (birçok trend token yeni/DEX'e özel olabilir — 'Kaç kayıt'ı artırıp tekrar dene)":""}</div>`;
-  if(!arr.length && !binSet) html+=`<div class="detail" style="color:var(--muted)">Trend listesi okunamadı — ham veriye bak.</div>`;
+  if(binOnly && !binSet) html+=`<div class="detail" style="margin-bottom:6px;color:var(--amber)">Binance sembol listesi alınamadı — filtre uygulanamadı.</div>`;
+  else if(binSet) html+=`<div class="detail" style="margin-bottom:6px;color:var(--muted)">Binance'de listeli: ${arr.length}/${nzTotal} token${arr.length===0?" (birçok trend token yeni/DEX'e özel olabilir — 'Kaç kayıt'ı artırıp tekrar dene)":""}</div>`;
+  if(!raw.length) html+=`<div class="detail" style="color:var(--muted)">Trend listesi okunamadı — ham veriye bak.</div>`;
+  else if(!arr.length) html+=`<div class="detail" style="color:var(--muted)">Gösterilecek (sıfır-dışı${binSet?", Binance'de listeli":""}) token yok.</div>`;
   html+=arr.slice(0,50).map(t=>{ const c=chg(t);
     return `<div class="detail" style="border-top:1px solid var(--line);padding-top:5px;margin-top:5px"><b>${escapeHtml(sym(t))}</b> <span style="color:var(--muted)">${escapeHtml(nm(t).slice(0,24))}</span>${price(t)!=null?` · ${fmtPrice(price(t))}`:''}${c!=null?` · <span style="color:${c>=0?'var(--green)':'var(--red)'}">${(c>=0?'+':'')+c.toFixed(1)}%</span>`:''}</div>`;
   }).join("");
