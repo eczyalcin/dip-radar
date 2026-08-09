@@ -1253,9 +1253,24 @@ async function resolveOnchainContract(symBase, override){
 }
 
 async function moralisGet(path, key){
-  const r=await fetch(MORALIS_BASE+path, {headers:{"X-API-Key":key, "accept":"application/json"}});
-  if(!r.ok){ let t=""; try{t=await r.text();}catch(e){} throw new Error("Moralis "+r.status+(t?": "+t.slice(0,180):"")); }
-  return r.json();
+  const url=MORALIS_BASE+path;
+  /* 1) doğrudan — Moralis tarayıcı CORS'una izin veriyorsa */
+  try{
+    const r=await fetch(url, {headers:{"X-API-Key":key, "accept":"application/json"}});
+    if(r.ok) return r.json();
+    if(r.status===401||r.status===403){ let t=""; try{t=await r.text();}catch(e){} throw new Error("Moralis "+r.status+(t?": "+t.slice(0,140):" — anahtar geçersiz olabilir")); }
+    /* diğer HTTP hataları: worker'ı denemeye değmez, doğrudan bildir */
+    let t=""; try{t=await r.text();}catch(e){} throw new Error("Moralis "+r.status+(t?": "+t.slice(0,140):""));
+  }catch(e){
+    if(/^Moralis \d/.test(e.message)) throw e;   // gerçek HTTP hatası -> aynen ilet
+    /* buraya düşmek CORS/ağ engeli demek -> kullanıcının Worker'ını dene */
+  }
+  /* 2) kullanıcının kendi Cloudflare Worker'ı üzerinden (anahtarı worker header'a ekler) */
+  const w=(($("s-cors-worker")&&$("s-cors-worker").value)||store.get("corsworker","")).trim();
+  if(!w) throw new Error("Moralis'e tarayıcıdan erişilemedi (CORS olabilir) ve CORS Worker adresi ayarlı değil. Hisse sekmesindeki 'Kendi CORS proxy adresin' alanına Worker adresini gir.");
+  const wr=await fetchWithTimeout(`${w.replace(/\/$/,"")}?url=${encodeURIComponent(url)}&mkey=${encodeURIComponent(key)}`, 15000);
+  if(!wr.ok){ let t=""; try{t=await wr.text();}catch(e){} throw new Error("Moralis (Worker) "+wr.status+(t?": "+t.slice(0,140):"")); }
+  return wr.json();
 }
 
 const num=x=> (x==null||x===""||isNaN(x)) ? null : Number(x);
