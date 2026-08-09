@@ -1353,14 +1353,14 @@ function cUsd(x){ if(x==null||isNaN(x))return "-"; const n=Number(x),a=Math.abs(
   if(a>=1e3)return s+"$"+(a/1e3).toFixed(1)+"K"; return s+"$"+a.toFixed(a>0&&a<1?4:0); }
 
 function renderAnalytics(j, ctx){
-  /* Moralis analytics en uzun 24s pencere veriyor (5m/1h/6h/24h). 3 günlük
-     yok. Gürültüyü atıp yalnız alım/satım/net baskı × en uzun iki pencere. */
-  const TF=[["6h","6 saat"],["24h","24 saat"]];
+  /* Moralis analytics pencereleri: 5m/1h/6h/24h (15m ve 3g yok). Yalnız
+     alım/satım/net baskı satırları; tüm mevcut pencereler sütun olarak. */
+  const TF=[["5m","5 dk"],["1h","1 saat"],["6h","6 saat"],["24h","24 saat"]];
   const g=(o,k)=> (o&&o[k]!=null&&!isNaN(o[k])) ? Number(o[k]) : null;
   const bv=j.totalBuyVolume, sv=j.totalSellVolume;
-  const th=TF.map(([,l])=>`<th style="text-align:right;padding:5px 12px;color:var(--muted);font-weight:600">${l}</th>`).join("");
-  const row=(label,fn,color)=>`<tr><td style="padding:6px 12px;white-space:nowrap">${label}</td>`+TF.map(([k])=>`<td class="mono" style="text-align:right;padding:6px 12px${color?';color:'+color:''}">${fn(k)}</td>`).join("")+`</tr>`;
-  let table=`<div style="overflow-x:auto;margin-top:4px"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr><th></th>${th}</tr></thead><tbody>`;
+  const th=TF.map(([,l])=>`<th style="text-align:right;padding:5px 9px;color:var(--muted);font-weight:600">${l}</th>`).join("");
+  const row=(label,fn,color)=>`<tr><td style="padding:6px 9px;white-space:nowrap">${label}</td>`+TF.map(([k])=>`<td class="mono" style="text-align:right;padding:6px 9px${color?';color:'+color:''}">${fn(k)}</td>`).join("")+`</tr>`;
+  let table=`<div style="overflow-x:auto;margin-top:4px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th></th>${th}</tr></thead><tbody>`;
   table+=row("Alım hacmi",k=>cUsd(g(bv,k)),"var(--green)");
   table+=row("Satım hacmi",k=>cUsd(g(sv,k)),"var(--red)");
   table+=row("Net baskı",k=>{const b=g(bv,k),s=g(sv,k);if(b==null||s==null)return "-";const d=b-s;return `<span style="color:${d>=0?'var(--green)':'var(--red)'};font-weight:700">${cUsd(d)}</span>`;});
