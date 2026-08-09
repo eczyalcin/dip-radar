@@ -1347,23 +1347,17 @@ function cUsd(x){ if(x==null||isNaN(x))return "-"; const n=Number(x),a=Math.abs(
   if(a>=1e3)return s+"$"+(a/1e3).toFixed(1)+"K"; return s+"$"+a.toFixed(a>0&&a<1?4:0); }
 
 function renderAnalytics(j, ctx){
-  const TF=[["5m","5d"],["1h","1s"],["6h","6s"],["24h","24s"]];
+  /* Moralis analytics en uzun 24s pencere veriyor (5m/1h/6h/24h). 3 günlük
+     yok. Gürültüyü atıp yalnız alım/satım/net baskı × en uzun iki pencere. */
+  const TF=[["6h","6 saat"],["24h","24 saat"]];
   const g=(o,k)=> (o&&o[k]!=null&&!isNaN(o[k])) ? Number(o[k]) : null;
-  const cN=x=> x==null?"-":Number(x).toLocaleString("en-US");
   const bv=j.totalBuyVolume, sv=j.totalSellVolume;
-  const ratio=k=>{ const b=g(bv,k),s=g(sv,k); return (b==null||s==null||s===0)?"-":(b/s).toFixed(2); };
-  const th=TF.map(([,l])=>`<th style="text-align:right;padding:3px 8px;color:var(--muted);font-weight:600">${l}</th>`).join("");
-  const row=(label,fn,color)=>`<tr><td style="padding:3px 8px;white-space:nowrap">${label}</td>`+TF.map(([k])=>`<td class="mono" style="text-align:right;padding:3px 8px${color?';color:'+color:''}">${fn(k)}</td>`).join("")+`</tr>`;
-  let table=`<div style="overflow-x:auto;margin-top:4px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr><th></th>${th}</tr></thead><tbody>`;
+  const th=TF.map(([,l])=>`<th style="text-align:right;padding:5px 12px;color:var(--muted);font-weight:600">${l}</th>`).join("");
+  const row=(label,fn,color)=>`<tr><td style="padding:6px 12px;white-space:nowrap">${label}</td>`+TF.map(([k])=>`<td class="mono" style="text-align:right;padding:6px 12px${color?';color:'+color:''}">${fn(k)}</td>`).join("")+`</tr>`;
+  let table=`<div style="overflow-x:auto;margin-top:4px"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr><th></th>${th}</tr></thead><tbody>`;
   table+=row("Alım hacmi",k=>cUsd(g(bv,k)),"var(--green)");
   table+=row("Satım hacmi",k=>cUsd(g(sv,k)),"var(--red)");
-  table+=row("Net baskı",k=>{const b=g(bv,k),s=g(sv,k);if(b==null||s==null)return "-";const d=b-s;return `<span style="color:${d>=0?'var(--green)':'var(--red)'}">${cUsd(d)}</span>`;});
-  table+=row("Al/Sat oranı",k=>ratio(k));
-  table+=row("Alıcı",k=>cN(g(j.totalBuyers,k)));
-  table+=row("Satıcı",k=>cN(g(j.totalSellers,k)));
-  table+=row("Alım / satım işl.",k=>`${cN(g(j.totalBuys,k))}/${cN(g(j.totalSells,k))}`);
-  table+=row("Tekil cüzdan",k=>cN(g(j.uniqueWallets,k)));
-  table+=row("Fiyat Δ",k=>{const v=g(j.pricePercentChange,k);return v==null?"-":`<span style="color:${v>=0?'var(--green)':'var(--red)'}">${(v>=0?'+':'')+v.toFixed(2)}%</span>`;});
+  table+=row("Net baskı",k=>{const b=g(bv,k),s=g(sv,k);if(b==null||s==null)return "-";const d=b-s;return `<span style="color:${d>=0?'var(--green)':'var(--red)'};font-weight:700">${cUsd(d)}</span>`;});
   table+=`</tbody></table></div>`;
 
   const badges=[];
@@ -1372,7 +1366,7 @@ function renderAnalytics(j, ctx){
   if(j.totalFullyDilutedValuation!=null) badges.push(`<span class="badge">FDV ${cUsd(j.totalFullyDilutedValuation)}</span>`);
   const b24=g(bv,"24h"), s24=g(sv,"24h");
   let summary="";
-  if(b24!=null&&s24!=null){ const dom=b24>=s24; summary=`<div class="detail" style="margin:8px 0">24s: alım <b>${cUsd(b24)}</b> / satım <b>${cUsd(s24)}</b> → <span style="color:${dom?'var(--green)':'var(--red)'};font-weight:700">${dom?'alım':'satım'} baskın</span> (oran ${ratio("24h")})</div>`; }
+  if(b24!=null&&s24!=null){ const d=b24-s24, dom=d>=0; summary=`<div class="detail" style="margin:8px 0">24 saatlik net baskı: <b style="color:${dom?'var(--green)':'var(--red)'};font-weight:700">${cUsd(d)} (${dom?'alım':'satım'} baskın)</b></div>`; }
 
   return `<div class="card"><div class="card-top"><div class="sym">${escapeHtml(ctx.name)} · alım/satım analizi</div><div class="price">${escapeHtml(ctx.chain)}</div></div>`
     + (badges.length?`<div class="badges" style="margin:6px 0 4px">${badges.join("")}</div>`:'')
