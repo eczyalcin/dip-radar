@@ -1293,23 +1293,49 @@ function renderHolders(j, ctx){
   return html;
 }
 
+/* swap USD değerini alan adından bağımsız bul: bilinen adlar → iç içe
+   bought/sold → 'usd' içeren (ama 'price' olmayan) herhangi bir alan */
+function swapUsd(s){
+  const direct=[s.totalValueUsd,s.total_value_usd,s.valueUsd,s.value_usd,s.usdValue,s.amountUsd,s.amount_usd];
+  for(const d of direct){ const n=num(d); if(n!=null) return n; }
+  for(const key of ["bought","sold","baseToken","quoteToken","token0","token1"]){
+    const o=s[key]; if(o&&typeof o==="object"){ const n=num(o.usdAmount??o.usd_amount??o.valueUsd??o.usdValue??o.amountUsd); if(n!=null) return n; }
+  }
+  for(const [k,v] of Object.entries(s)){ if(/usd/i.test(k)&&!/price/i.test(k)){ const n=num(v); if(n!=null) return n; } }
+  return null;
+}
+function swapAmount(s){
+  const c=[s.baseTokenAmount,s.base_token_amount,s.amount,s.tokenAmount,s.value];
+  for(const x of c){ const n=num(x); if(n!=null) return n; }
+  for(const key of ["bought","sold","baseToken"]){ const o=s[key]; if(o&&typeof o==="object"){ const n=num(o.amount??o.tokenAmount); if(n!=null) return n; } }
+  return null;
+}
 function renderSwaps(j, ctx, minUsd, limit){
-  let arr = Array.isArray(j) ? j : (j.result || j.swaps || j.data || []);
+  let arr = Array.isArray(j) ? j : (j.result || j.swaps || j.data || j.trades || []);
   if(!Array.isArray(arr)) arr=[];
-  const val=s=> num(s.totalValueUsd ?? s.total_value_usd ?? s.valueUsd ?? s.value_usd ?? s.usdValue) || 0;
-  const typ=s=> (s.transactionType || s.transaction_type || s.type || "").toLowerCase();
-  const filtered=arr.filter(s=>Math.abs(val(s))>=minUsd).sort((a,b)=>Math.abs(val(b))-Math.abs(val(a))).slice(0,limit);
+  const typ=s=> (s.transactionType || s.transaction_type || s.type || s.tradeType || s.side || "").toLowerCase();
+  const wal=s=> s.walletAddress||s.wallet_address||s.fromAddress||s.from_address||s.from||s.address||s.maker||s.sender||"";
+  const tim=s=> s.blockTimestamp||s.block_timestamp||s.timestamp||s.time||s.blockTime||"";
+  const withUsd=arr.map(s=>({s, usd:swapUsd(s)}));
+  const anyUsd=withUsd.some(x=>x.usd!=null);
+  let list, note;
+  if(anyUsd){
+    list=withUsd.filter(x=>Math.abs(x.usd||0)>=minUsd).sort((a,b)=>Math.abs(b.usd||0)-Math.abs(a.usd||0)).slice(0,limit);
+    note=`${arr.length} swap · ≥${cUsd(minUsd)} filtresinden ${list.length} kayıt`;
+  } else {
+    list=withUsd.slice(0,limit);
+    note=`${arr.length} swap · USD alanı otomatik okunamadı — filtre uygulanmadı, en yeni ${list.length} gösteriliyor ("ham veri"yi bana gönder, alanı sabitleyeyim)`;
+  }
   let html=`<div class="card"><div class="card-top"><div class="sym">${escapeHtml(ctx.name)} · whale swap'ları</div><div class="price">${escapeHtml(ctx.chain)}</div></div>`;
-  html+=`<div class="detail" style="margin-bottom:8px">${arr.length} swap alındı · ≥${fmtUsd(minUsd)} filtresinden ${filtered.length} kayıt</div>`;
-  if(!filtered.length) html+=`<div class="detail" style="color:var(--muted)">Bu eşiğin üstünde swap yok — Min USD'yi düşür.</div>`;
-  html+=filtered.map(s=>{
-    const t=typ(s), buy=t.includes("buy"); const wallet=s.walletAddress||s.wallet_address||s.from_address||s.address||"";
-    const ts=s.blockTimestamp||s.block_timestamp||s.timestamp||"";
+  html+=`<div class="detail" style="margin-bottom:8px">${note}</div>`;
+  if(!list.length) html+=`<div class="detail" style="color:var(--muted)">Gösterilecek swap yok — Min USD'yi düşür.</div>`;
+  html+=list.map(({s,usd})=>{
+    const t=typ(s), buy=t.includes("buy"), sell=t.includes("sell"); const w=String(wal(s)); const amt=swapAmount(s);
     return `<div class="detail" style="border-top:1px solid var(--line);padding-top:6px;margin-top:6px">
-      <span class="badge ${buy?'on-rev':'on-cap'}">${buy?'ALIŞ':(t.includes("sell")?'SATIŞ':t||'?')}</span>
-      <b>${fmtUsd(val(s))}</b> · <span class="mono" style="font-size:11px">${escapeHtml(String(wallet).slice(0,10))}…</span> · <span style="color:var(--muted)">${escapeHtml(String(ts).slice(0,19))}</span></div>`;
+      <span class="badge ${buy?'on-rev':(sell?'on-cap':'')}">${buy?'ALIŞ':(sell?'SATIŞ':(t||'?'))}</span>
+      ${usd!=null?`<b>${cUsd(usd)}</b> · `:''}${amt!=null?`<span class="mono">${amt.toLocaleString("en-US",{maximumFractionDigits:0})}</span> · `:''}<span class="mono" style="font-size:11px">${escapeHtml(w?w.slice(0,10)+'…':'?')}</span> <span style="color:var(--muted)">${escapeHtml(String(tim(s)).slice(0,19))}</span></div>`;
   }).join("");
-  html+=ocRaw(Array.isArray(j)?{result:arr.slice(0,3)}:{...j, result:(arr||[]).slice(0,3)})+`</div>`;
+  html+=ocRaw(Array.isArray(j)?{result:arr.slice(0,2)}:{...j, result:(arr||[]).slice(0,2)})+`</div>`;
   return html;
 }
 
