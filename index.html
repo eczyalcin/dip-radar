@@ -449,6 +449,48 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
   <div class="status" id="lc-status"></div>
   <div id="lc-results"></div>
   <div class="empty" id="lc-empty">Bir coin gir (ör. BTC) ve taramayı başlat.</div>
+
+  <div style="height:1px;background:var(--line);margin:22px 0 16px"></div>
+  <h1 style="font-size:18px;font-weight:800;margin:0 2px 2px">On-chain <span style="color:var(--amber)">veri (Moralis)</span></h1>
+  <p style="color:var(--muted);font-size:12px;margin:0 2px 10px">Token holder istatistikleri · whale DEX swap'ları · alım/satım hacmi — indexed on-chain veri, filtrelerle</p>
+
+  <div class="warnbox">
+    <b>Ücretsiz Moralis anahtarı gerekir</b> (moralis.io — tek kayıt, ücretsiz plan 40k CU/gün). Anahtarını aşağıya gir; <b>localStorage'da tutulur, repoya konmaz</b> ama tarayıcı isteğinde görünür — ücretsiz/rate-limitli anahtar için kabul edilebilir. Coin sembolünden <b>kontrat adresi + zincir</b> CoinGecko ile otomatik bulunur (anahtarsız). <b>Kapsam: EVM token'ları</b> (Ethereum, BSC, Polygon, Arbitrum, Base, Optimism, Avalanche). BTC/native ETH/BNB ve yalnız-Solana token'ları bu bölümde desteklenmez. Moralis tarayıcıdan CORS'a izin vermezse hata verirse söyle — Worker üzerinden geçirme eklerim. Alan adları ilk canlı testte netleşince görünümü rafine ederiz (her sonuçta "ham veri" bloğu var).
+  </div>
+
+  <div class="settings-body" style="padding:0 0 12px">
+    <div class="field full"><label>Moralis API anahtarı <span onclick="var k=document.getElementById('oc-key');if(k.type==='password'){k.type='text';this.textContent='Gizle';}else{k.type='password';this.textContent='Göster';}" style="color:var(--blue);cursor:pointer;font-size:11px;margin-left:8px">Göster</span></label>
+      <input type="password" id="oc-key" placeholder="Moralis API key" onchange="store.set('moraliskey', this.value.trim())"></div>
+    <div class="field"><label>Coin (sembol; ör. PEPE, UNI, LINK)</label><input type="text" id="oc-sym" placeholder="PEPE" autocapitalize="characters"></div>
+    <div class="field"><label>Zincir</label>
+      <select id="oc-chain" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
+        <option value="auto" selected>Otomatik (CoinGecko)</option>
+        <option value="eth">Ethereum</option><option value="bsc">BSC</option>
+        <option value="polygon">Polygon</option><option value="arbitrum">Arbitrum</option>
+        <option value="base">Base</option><option value="optimism">Optimism</option>
+        <option value="avalanche">Avalanche</option>
+      </select>
+    </div>
+    <div class="field"><label>Veri tipi</label>
+      <select id="oc-type" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
+        <option value="holders" selected>Holder istatistikleri</option>
+        <option value="swaps">Whale DEX swap'ları</option>
+        <option value="analytics">Alım/satım hacmi (analytics)</option>
+      </select>
+    </div>
+    <div class="field"><label>Min USD (swap filtresi)</label><input type="number" id="oc-minusd" value="10000" min="0" step="1000"></div>
+    <div class="field"><label>Kaç kayıt (swap listesi)</label><input type="number" id="oc-limit" value="50" min="5" max="300"></div>
+  </div>
+
+  <div class="scanbar">
+    <button class="primary" id="oc-scanbtn" onclick="scanOnchain()">On-chain veriyi getir</button>
+    <button class="ghost" id="oc-clearbtn" onclick="clearOnchain()" style="display:none">Temizle</button>
+  </div>
+
+  <div class="progress" id="oc-prog"><i id="oc-progbar"></i></div>
+  <div class="status" id="oc-status"></div>
+  <div id="oc-results"></div>
+  <div class="empty" id="oc-empty">Bir coin gir, veri tipi seç ve "getir"e bas.</div>
 </div>
 
 <!-- ================= HİSSE ================= -->
@@ -1172,6 +1214,134 @@ async function scanSocial(){
   btn.disabled=false; stop.style.display="none";
   $("lc-prog").classList.remove("on");
   endScan();
+}
+
+/* ================= ON-CHAIN (Moralis) =================
+   Indexed on-chain veri: token holder istatistikleri, whale DEX swap'ları,
+   alım/satım hacmi. Coin sembolünden kontrat+zincir CoinGecko ile bulunur
+   (anahtarsız), sonra Moralis'ten (kullanıcının kendi ücretsiz anahtarı,
+   localStorage) çekilir. Kapsam: EVM zincirleri. Moralis'e sandbox'tan
+   erişilemediği için alan adları ilk canlı testte doğrulanacak — her
+   sonuçta "ham veri" bloğu var, gerekirse görünüm sonradan rafine edilir. */
+const MORALIS_BASE="https://deep-index.moralis.io/api/v2.2";
+const CG_TO_MORALIS={ "ethereum":"eth","binance-smart-chain":"bsc","polygon-pos":"polygon",
+  "arbitrum-one":"arbitrum","base":"base","optimistic-ethereum":"optimism",
+  "avalanche":"avalanche","fantom":"fantom","cronos":"cronos","gnosis":"gnosis","linea":"linea" };
+
+/* sembol -> {name, chain(moralis), address, avail[]} · CoinGecko platforms */
+async function resolveOnchainContract(symBase, override){
+  const sr=await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(symBase)}`);
+  if(!sr.ok) throw new Error("CoinGecko arama hatası "+sr.status);
+  const sj=await sr.json();
+  if(!sj.coins||!sj.coins.length) throw new Error("CoinGecko'da coin bulunamadı: "+symBase);
+  const exact=sj.coins.find(c=>c.symbol&&c.symbol.toUpperCase()===symBase.toUpperCase());
+  const coin=exact||sj.coins[0];
+  const cr=await fetch(`https://api.coingecko.com/api/v3/coins/${coin.id}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false`);
+  if(!cr.ok) throw new Error("CoinGecko coin verisi hatası "+cr.status);
+  const cj=await cr.json();
+  const platforms=cj.platforms||{};
+  const avail=Object.entries(platforms)
+    .filter(([k,v])=>k && v && CG_TO_MORALIS[k])
+    .map(([k,v])=>({cg:k, chain:CG_TO_MORALIS[k], address:v}));
+  if(!avail.length) throw new Error(`${cj.name} için desteklenen EVM zincirinde kontrat yok (native coin ya da yalnız-Solana olabilir).`);
+  let pick;
+  if(override && override!=="auto"){
+    pick=avail.find(a=>a.chain===override);
+    if(!pick) throw new Error(`${cj.name} '${override}' zincirinde yok. Mevcut: ${avail.map(a=>a.chain).join(", ")}`);
+  } else pick=avail[0];
+  return {name:cj.name, chain:pick.chain, address:pick.address, avail};
+}
+
+async function moralisGet(path, key){
+  const r=await fetch(MORALIS_BASE+path, {headers:{"X-API-Key":key, "accept":"application/json"}});
+  if(!r.ok){ let t=""; try{t=await r.text();}catch(e){} throw new Error("Moralis "+r.status+(t?": "+t.slice(0,180):"")); }
+  return r.json();
+}
+
+const num=x=> (x==null||x===""||isNaN(x)) ? null : Number(x);
+function fmtUsd(x){ const n=num(x); if(n==null) return "-"; return "$"+n.toLocaleString("en-US",{maximumFractionDigits:0}); }
+function ocRaw(obj){ return `<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--muted);font-size:12px">ham veri</summary><pre style="overflow:auto;max-height:320px;font-size:10.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:6px">${escapeHtml(JSON.stringify(obj,null,2))}</pre></details>`; }
+function ocKV(label,val){ return val==null?"":`<div class="detail"><b>${escapeHtml(label)}:</b> ${escapeHtml(String(val))}</div>`; }
+
+function renderHolders(j, ctx){
+  const total = j.totalHolders ?? j.total_holders ?? j.totalHolderCount ?? null;
+  const ch = j.holderChange || j.holder_change || {};
+  const chLine = (lbl,k)=>{ const o=ch[k]; if(!o) return ""; const c=o.change??o.holderChange, pct=o.changePercent??o.change_percent;
+    return `<span class="badge ${(pct??0)>=0?'on-rev':'on-cap'}">${lbl}: ${c!=null?(c>=0?'+':'')+c:'-'}${pct!=null?` (${(pct>=0?'+':'')+(pct*1).toFixed(2)}%)`:''}</span>`; };
+  const dist = j.holderDistribution || j.holder_distribution || null;
+  let html=`<div class="card"><div class="card-top"><div class="sym">${escapeHtml(ctx.name)} · holder istatistikleri</div><div class="price">${escapeHtml(ctx.chain)}</div></div>`;
+  if(total!=null) html+=`<div style="font-size:26px;font-weight:800;margin:6px 0">${Number(total).toLocaleString("en-US")}<span style="font-size:12px;color:var(--muted)"> holder</span></div>`;
+  const badges=[chLine("24s","24h"),chLine("7g","7d"),chLine("30g","30d")].filter(Boolean).join("");
+  if(badges) html+=`<div class="badges" style="margin-bottom:8px">${badges}</div>`;
+  if(dist && typeof dist==="object") html+=Object.entries(dist).map(([k,v])=>ocKV(k, typeof v==="object"?JSON.stringify(v):v)).join("");
+  html+=ocRaw(j)+`</div>`;
+  return html;
+}
+
+function renderSwaps(j, ctx, minUsd, limit){
+  let arr = Array.isArray(j) ? j : (j.result || j.swaps || j.data || []);
+  if(!Array.isArray(arr)) arr=[];
+  const val=s=> num(s.totalValueUsd ?? s.total_value_usd ?? s.valueUsd ?? s.value_usd ?? s.usdValue) || 0;
+  const typ=s=> (s.transactionType || s.transaction_type || s.type || "").toLowerCase();
+  const filtered=arr.filter(s=>Math.abs(val(s))>=minUsd).sort((a,b)=>Math.abs(val(b))-Math.abs(val(a))).slice(0,limit);
+  let html=`<div class="card"><div class="card-top"><div class="sym">${escapeHtml(ctx.name)} · whale swap'ları</div><div class="price">${escapeHtml(ctx.chain)}</div></div>`;
+  html+=`<div class="detail" style="margin-bottom:8px">${arr.length} swap alındı · ≥${fmtUsd(minUsd)} filtresinden ${filtered.length} kayıt</div>`;
+  if(!filtered.length) html+=`<div class="detail" style="color:var(--muted)">Bu eşiğin üstünde swap yok — Min USD'yi düşür.</div>`;
+  html+=filtered.map(s=>{
+    const t=typ(s), buy=t.includes("buy"); const wallet=s.walletAddress||s.wallet_address||s.from_address||s.address||"";
+    const ts=s.blockTimestamp||s.block_timestamp||s.timestamp||"";
+    return `<div class="detail" style="border-top:1px solid var(--line);padding-top:6px;margin-top:6px">
+      <span class="badge ${buy?'on-rev':'on-cap'}">${buy?'ALIŞ':(t.includes("sell")?'SATIŞ':t||'?')}</span>
+      <b>${fmtUsd(val(s))}</b> · <span class="mono" style="font-size:11px">${escapeHtml(String(wallet).slice(0,10))}…</span> · <span style="color:var(--muted)">${escapeHtml(String(ts).slice(0,19))}</span></div>`;
+  }).join("");
+  html+=ocRaw(Array.isArray(j)?{result:arr.slice(0,3)}:{...j, result:(arr||[]).slice(0,3)})+`</div>`;
+  return html;
+}
+
+function renderAnalytics(j, ctx){
+  let html=`<div class="card"><div class="card-top"><div class="sym">${escapeHtml(ctx.name)} · alım/satım analizi</div><div class="price">${escapeHtml(ctx.chain)}</div></div>`;
+  const flat=(o,p="")=>{ let s=""; for(const [k,v] of Object.entries(o||{})){ if(v&&typeof v==="object"&&!Array.isArray(v)) s+=flat(v,p+k+"."); else s+=ocKV(p+k, typeof v==="number"?v.toLocaleString("en-US"):v); } return s; };
+  html+=flat(j)||`<div class="detail" style="color:var(--muted)">Tanınan alan yok — ham veriye bak.</div>`;
+  html+=ocRaw(j)+`</div>`;
+  return html;
+}
+
+async function scanOnchain(){
+  const sym=$("oc-sym").value.trim().toUpperCase().replace(/USDT$/,"");
+  const key=$("oc-key").value.trim();
+  const type=$("oc-type").value, chainOv=$("oc-chain").value;
+  const minUsd=parseFloat($("oc-minusd").value)||0, limit=parseInt($("oc-limit").value)||50;
+  const status=$("oc-status"), out=$("oc-results");
+  if(!sym){ status.innerHTML='<span class="err">Bir coin sembolü gir (ör. PEPE).</span>'; return; }
+  if(!key){ status.innerHTML='<span class="err">Moralis API anahtarı gerekli (moralis.io — ücretsiz).</span>'; return; }
+  store.set("moraliskey", key);
+  const btn=$("oc-scanbtn");
+  btn.disabled=true; $("oc-prog").classList.add("on"); $("oc-progbar").style.width="30%";
+  out.innerHTML=""; $("oc-empty").classList.remove("on"); $("oc-clearbtn").style.display="none";
+  status.textContent="Kontrat adresi çözülüyor (CoinGecko)…";
+  try{
+    const ctx=await resolveOnchainContract(sym, chainOv);
+    $("oc-progbar").style.width="60%";
+    status.textContent=`${ctx.name} · ${ctx.chain} · ${ctx.address.slice(0,10)}… · Moralis'ten çekiliyor…`;
+    let j, html;
+    if(type==="holders"){ j=await moralisGet(`/erc20/${ctx.address}/holders?chain=${ctx.chain}`, key); html=renderHolders(j, ctx); }
+    else if(type==="swaps"){ j=await moralisGet(`/erc20/${ctx.address}/swaps?chain=${ctx.chain}&order=DESC&limit=100`, key); html=renderSwaps(j, ctx, minUsd, limit); }
+    else { j=await moralisGet(`/tokens/${ctx.address}/analytics?chain=${ctx.chain}`, key); html=renderAnalytics(j, ctx); }
+    $("oc-progbar").style.width="100%";
+    out.innerHTML=html;
+    $("oc-clearbtn").style.display="block";
+    status.textContent=`${ctx.name} (${ctx.chain}) · ${ctx.avail.length>1?`diğer zincirler: ${ctx.avail.map(a=>a.chain).filter(c=>c!==ctx.chain).join(", ")} · `:''}tamamlandı.`;
+  }catch(e){
+    status.innerHTML=`<span class="err">${escapeHtml(e.message)}</span>`;
+    out.innerHTML=`<div class="warnbox">Moralis CORS hatası veriyorsa (tarayıcıdan doğrudan erişime izin vermiyorsa) söyle — isteği senin Cloudflare Worker'ından geçirecek şekilde eklerim. Ağ/anahtar/zincir hatası da olabilir.</div>`;
+  }finally{
+    btn.disabled=false; $("oc-prog").classList.remove("on");
+  }
+}
+
+function clearOnchain(){
+  $("oc-results").innerHTML=""; $("oc-status").textContent="";
+  $("oc-empty").classList.remove("on"); $("oc-clearbtn").style.display="none";
 }
 
 /* ---------- kart çizimi ---------- */
@@ -2870,6 +3040,7 @@ function clearList(){
 (function(){
   const k=store.get("fmpkey",""); if(k) $("s-key").value=k;
   const cw=store.get("corsworker",""); if(cw) $("s-cors-worker").value=cw;
+  const mk=store.get("moraliskey",""); if(mk) $("oc-key").value=mk;
   /* "watchlist" (piyasa seçici öncesi, eski tek liste) varsa ABD listesine taşı */
   const legacyW=store.get("watchlist","");
   const w=store.get("watchlist:us", legacyW);
