@@ -463,6 +463,7 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
     <div class="field full"><label>Moralis API anahtarı <span onclick="var k=document.getElementById('oc-key');if(k.type==='password'){k.type='text';this.textContent='Gizle';}else{k.type='password';this.textContent='Göster';}" style="color:var(--blue);cursor:pointer;font-size:11px;margin-left:8px">Göster</span></label>
       <input type="password" id="oc-key" placeholder="Moralis API key" onchange="store.set('moraliskey', this.value.trim())"></div>
     <div class="field"><label>Coin (sembol; ör. PEPE, UNI, LINK)</label><input type="text" id="oc-sym" placeholder="PEPE" autocapitalize="characters"></div>
+    <div class="field full"><label>Cüzdan adresi (yalnız "Cüzdan analizi" için · 0x…)</label><input type="text" id="oc-wallet" placeholder="0x..."></div>
     <div class="field"><label>Zincir</label>
       <select id="oc-chain" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
         <option value="auto" selected>Otomatik (CoinGecko)</option>
@@ -475,9 +476,13 @@ button.ghost{background:var(--surface);border:1px solid var(--line);color:var(--
     <div class="field"><label>Veri tipi</label>
       <select id="oc-type" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-size:15px">
         <option value="holders" selected>Holder istatistikleri</option>
+        <option value="topholders">Top holder'lar (konsantrasyon)</option>
         <option value="swaps">Whale DEX swap'ları</option>
         <option value="analytics">Alım/satım hacmi (analytics)</option>
         <option value="transfers">Transferler (borsa giriş/çıkış)</option>
+        <option value="metadata">Token güvenlik / metadata</option>
+        <option value="wallet">Cüzdan analizi (PnL) — adres gir</option>
+        <option value="trending">Trend / en çok yükselen</option>
       </select>
     </div>
     <div class="field"><label>Min USD (swap filtresi)</label><input type="number" id="oc-minusd" value="10000" min="0" step="1000"></div>
@@ -1423,41 +1428,145 @@ async function fetchOnchainForAnalyze(base){
   }catch(e){ return {error:e.message}; }
 }
 
+/* Top holder'lar (konsantrasyon) — /erc20/{addr}/owners */
+function renderTopHolders(j, ctx, limit){
+  let arr=Array.isArray(j)?j:(j.result||j.owners||j.holders||[]); if(!Array.isArray(arr))arr=[];
+  const pctOf=o=>num(o.percentage_relative_to_total_supply ?? o.percentageRelativeToTotalSupply ?? o.percentage ?? o.percent);
+  const balOf=o=>num(o.balance_formatted ?? o.balanceFormatted) ?? num(o.balance);
+  const addrOf=o=>o.owner_address||o.ownerAddress||o.address||o.owner||"";
+  const labOf=o=>{ let e=o.owner_address_entity??o.ownerAddressEntity??o.owner_address_label??o.ownerAddressLabel??o.entity; if(e&&typeof e==="object")e=e.name||e.label; return e?String(e):""; };
+  let top10=0,top50=0; arr.forEach((o,i)=>{ const pc=pctOf(o)||0; if(i<10)top10+=pc; if(i<50)top50+=pc; });
+  let html=`<div class="card"><div class="card-top"><div class="sym">${escapeHtml(ctx.name)} · top holder'lar</div><div class="price">${escapeHtml(ctx.chain)}</div></div>`;
+  if(arr.length){
+    html+=`<div class="badges" style="margin:6px 0 8px"><span class="badge ${top10>50?'on-cap':(top10>25?'':'on-rev')}">Top 10: %${top10.toFixed(1)}</span><span class="badge">Top 50: %${top50.toFixed(1)}</span><span class="badge">${arr.length} cüzdan</span></div>
+      <div class="detail" style="margin-bottom:8px;color:var(--muted)">Konsantrasyon yüksekse (birkaç cüzdan çoğunu tutuyor) risk; geniş dağılım daha sağlıklı.</div>`;
+  } else html+=`<div class="detail" style="color:var(--muted)">Holder listesi okunamadı — ham veriye bak.</div>`;
+  html+=arr.slice(0,limit).map((o,i)=>{ const a=addrOf(o),lab=labOf(o),pc=pctOf(o),bal=balOf(o);
+    return `<div class="detail" style="border-top:1px solid var(--line);padding-top:5px;margin-top:5px"><b>#${i+1}</b> ${pc!=null?`<b style="color:var(--amber)">%${pc.toFixed(2)}</b> · `:''}<span class="mono" style="font-size:11px">${escapeHtml(lab||(a?a.slice(0,12)+'…':'?'))}</span>${bal!=null?` · <span class="mono" style="color:var(--muted)">${bal.toLocaleString("en-US",{maximumFractionDigits:0})}</span>`:''}</div>`;
+  }).join("");
+  html+=ocRaw(Array.isArray(j)?{result:arr.slice(0,3)}:{...j,result:(arr||[]).slice(0,3)})+`</div>`;
+  return html;
+}
+
+/* Token güvenlik / metadata — /erc20/metadata */
+function renderMetadata(j, ctx){
+  let m=Array.isArray(j)?j[0]:(j.result?(Array.isArray(j.result)?j.result[0]:j.result):j); m=m||{};
+  const verified=m.verified_contract ?? m.verifiedContract;
+  const spam=m.possible_spam ?? m.possibleSpam;
+  const sec=num(m.security_score ?? m.securityScore);
+  const supply=num(m.total_supply_formatted ?? m.totalSupplyFormatted) ?? num(m.total_supply);
+  const fdv=num(m.fully_diluted_valuation ?? m.fullyDilutedValuation);
+  const mcap=num(m.market_cap ?? m.marketCap);
+  let html=`<div class="card"><div class="card-top"><div class="sym">${escapeHtml(m.name||ctx.name)}${m.symbol?' ('+escapeHtml(m.symbol)+')':''} · güvenlik/metadata</div><div class="price">${escapeHtml(ctx.chain)}</div></div>`;
+  const badges=[];
+  if(verified!=null) badges.push(`<span class="badge ${verified?'on-rev':'on-cap'}">Doğrulanmış: ${verified?'✓':'✗'}</span>`);
+  if(spam!=null) badges.push(`<span class="badge ${spam?'on-cap':'on-rev'}">${spam?'⚠ possible_spam':'spam değil'}</span>`);
+  if(sec!=null) badges.push(`<span class="badge ${sec>=70?'on-rev':(sec>=40?'':'on-cap')}">Güvenlik skoru: ${sec}</span>`);
+  if(badges.length) html+=`<div class="badges" style="margin:6px 0 8px">${badges.join("")}</div>`;
+  else html+=`<div class="detail" style="color:var(--muted)">Tanınan alan yok — ham veriye bak.</div>`;
+  html+=ocKV("Toplam arz", supply!=null?supply.toLocaleString("en-US"):null);
+  html+=ocKV("Market cap", mcap!=null?cUsd(mcap):null);
+  html+=ocKV("FDV", fdv!=null?cUsd(fdv):null);
+  html+=ocKV("Kontrat", m.address||ctx.address);
+  html+=ocRaw(j)+`</div>`;
+  return html;
+}
+
+/* Cüzdan analizi (PnL / net değer / varlıklar) */
+function renderWallet(data, w, chain){
+  const {pnl, nw, toks}=data;
+  const dig=(o,...ks)=>{ for(const k of ks){ if(o&&o[k]!=null)return o[k]; if(o&&o.result&&o.result[k]!=null)return o.result[k]; } return null; };
+  const realized=num(dig(pnl,"total_realized_profit_usd","totalRealizedProfitUsd","total_realized_profit"));
+  const realizedPct=num(dig(pnl,"total_realized_profit_percentage","totalRealizedProfitPercentage"));
+  const trades=num(dig(pnl,"total_count_of_trades","totalCountOfTrades","total_trades"));
+  const worth=num(dig(nw,"total_networth_usd","totalNetworthUsd"));
+  let tarr=Array.isArray(toks)?toks:(toks&&(toks.result||toks.tokens)||[]); if(!Array.isArray(tarr))tarr=[];
+  let html=`<div class="card"><div class="card-top"><div class="sym">Cüzdan analizi</div><div class="price">${escapeHtml(chain)}</div></div>`;
+  html+=`<div class="detail" style="margin-bottom:6px"><span class="mono" style="font-size:11px">${escapeHtml(w)}</span></div>`;
+  const badges=[];
+  if(worth!=null) badges.push(`<span class="badge on-div">Net değer ${cUsd(worth)}</span>`);
+  if(realized!=null) badges.push(`<span class="badge ${realized>=0?'on-rev':'on-cap'}">Realize PnL ${cUsd(realized)}${realizedPct!=null?` (${(realizedPct>=0?'+':'')+realizedPct.toFixed(1)}%)`:''}</span>`);
+  if(trades!=null) badges.push(`<span class="badge">${trades} işlem</span>`);
+  if(badges.length) html+=`<div class="badges" style="margin:6px 0 8px">${badges.join("")}</div>`;
+  else html+=`<div class="detail" style="color:var(--muted)">PnL/net değer okunamadı — ham veriye bak, alan adlarını sabitlerim.</div>`;
+  if(tarr.length){
+    const usdT=t=>num(t.usd_value ?? t.usdValue ?? t.value_usd);
+    html+=`<div class="detail" style="font-weight:700;margin:8px 0 4px">En büyük varlıklar</div>`;
+    html+=tarr.map(t=>({t,u:usdT(t)})).sort((a,b)=>(b.u||0)-(a.u||0)).slice(0,10).map(({t,u})=>`<div class="detail" style="border-top:1px solid var(--line);padding-top:4px;margin-top:4px">${escapeHtml(t.symbol||t.token_symbol||"?")}${u!=null?` · <b>${cUsd(u)}</b>`:''}</div>`).join("");
+  }
+  html+=ocRaw({pnl,nw,tokens:tarr.slice(0,3)})+`</div>`;
+  return html;
+}
+
+/* Trend / en çok yükselen tokenlar */
+function renderTrending(j, chain){
+  let arr=Array.isArray(j)?j:(j.result||j.tokens||j.data||[]); if(!Array.isArray(arr))arr=[];
+  const sym=t=>t.token_symbol||t.symbol||"?", nm=t=>t.token_name||t.name||"";
+  const price=t=>num(t.price_usd??t.usdPrice??t.usd_price??t.price);
+  const chg=t=>num(t.price_change_24h??t.pricePercentChange24h??t.price_24h_percent_change??(t.pricePercentChange&&t.pricePercentChange["24h"]));
+  let html=`<div class="card"><div class="card-top"><div class="sym">Trend tokenlar</div><div class="price">${escapeHtml(chain)}</div></div>`;
+  if(!arr.length) html+=`<div class="detail" style="color:var(--muted)">Trend listesi okunamadı — ham veriye bak.</div>`;
+  html+=arr.slice(0,50).map(t=>{ const c=chg(t);
+    return `<div class="detail" style="border-top:1px solid var(--line);padding-top:5px;margin-top:5px"><b>${escapeHtml(sym(t))}</b> <span style="color:var(--muted)">${escapeHtml(nm(t).slice(0,24))}</span>${price(t)!=null?` · ${fmtPrice(price(t))}`:''}${c!=null?` · <span style="color:${c>=0?'var(--green)':'var(--red)'}">${(c>=0?'+':'')+c.toFixed(1)}%</span>`:''}</div>`;
+  }).join("");
+  html+=ocRaw(Array.isArray(j)?{result:arr.slice(0,3)}:{...j,result:(arr||[]).slice(0,3)})+`</div>`;
+  return html;
+}
+
 async function scanOnchain(){
-  const sym=$("oc-sym").value.trim().toUpperCase().replace(/USDT$/,"");
+  const type=$("oc-type").value;
   const key=$("oc-key").value.trim();
-  const type=$("oc-type").value, chainOv=$("oc-chain").value;
+  const chainOv=$("oc-chain").value;
   const minUsd=parseFloat($("oc-minusd").value)||0, limit=parseInt($("oc-limit").value)||50;
   const status=$("oc-status"), out=$("oc-results");
-  if(!sym){ status.innerHTML='<span class="err">Bir coin sembolü gir (ör. PEPE).</span>'; return; }
   if(!key){ status.innerHTML='<span class="err">Moralis API anahtarı gerekli (moralis.io — ücretsiz).</span>'; return; }
   store.set("moraliskey", key);
+  const chainNC = chainOv==="auto" ? "eth" : chainOv; // wallet/trending: auto→eth
   const btn=$("oc-scanbtn");
   btn.disabled=true; $("oc-prog").classList.add("on"); $("oc-progbar").style.width="30%";
   out.innerHTML=""; $("oc-empty").classList.remove("on"); $("oc-clearbtn").style.display="none";
-  status.textContent="Kontrat adresi çözülüyor (CoinGecko)…";
+  const V=s=>s.status==="fulfilled"?s.value:null;
   try{
-    const ctx=await resolveOnchainContract(sym, chainOv);
-    $("oc-progbar").style.width="60%";
-    status.textContent=`${ctx.name} · ${ctx.chain} · ${ctx.address.slice(0,10)}… · Moralis'ten çekiliyor…`;
-    let j, html;
-    if(type==="holders"){ j=await moralisGet(`/erc20/${ctx.address}/holders?chain=${ctx.chain}`, key); html=renderHolders(j, ctx); }
-    else if(type==="swaps"){ j=await moralisGet(`/erc20/${ctx.address}/swaps?chain=${ctx.chain}&order=DESC&limit=100`, key); html=renderSwaps(j, ctx, minUsd, limit); }
-    else if(type==="transfers"){
-      const [tr, pr]=await Promise.all([
-        moralisGet(`/erc20/${ctx.address}/transfers?chain=${ctx.chain}&order=DESC&limit=100`, key),
-        moralisGet(`/erc20/${ctx.address}/price?chain=${ctx.chain}`, key).catch(()=>null)
+    let html, label;
+    if(type==="wallet"){
+      const w=$("oc-wallet").value.trim();
+      if(!/^0x[0-9a-fA-F]{40}$/.test(w)) throw new Error("Geçerli bir cüzdan adresi gir (0x… 42 karakter). Zincir: "+chainNC);
+      status.textContent="Cüzdan analiz ediliyor…";
+      const [pnl,nw,toks]=await Promise.allSettled([
+        moralisGet(`/wallets/${w}/profitability/summary?chain=${chainNC}`, key),
+        moralisGet(`/wallets/${w}/net-worth?chain=${chainNC}&exclude_spam=true`, key),
+        moralisGet(`/wallets/${w}/tokens?chain=${chainNC}&limit=25&exclude_spam=true`, key)
       ]);
-      j=tr; html=renderTransfers(tr, ctx, (pr&&num(pr.usdPrice)!=null)?num(pr.usdPrice):null, minUsd, limit);
+      html=renderWallet({pnl:V(pnl),nw:V(nw),toks:V(toks)}, w, chainNC);
+      label=`Cüzdan ${w.slice(0,10)}… (${chainNC})`;
+    } else if(type==="trending"){
+      status.textContent="Trend tokenlar alınıyor…";
+      const j=await moralisGet(`/tokens/trending?chain=${chainNC}&limit=${limit}`, key);
+      html=renderTrending(j, chainNC); label=`Trend (${chainNC})`;
+    } else {
+      const sym=$("oc-sym").value.trim().toUpperCase().replace(/USDT$/,"");
+      if(!sym) throw new Error("Bir coin sembolü gir (ör. PEPE).");
+      status.textContent="Kontrat adresi çözülüyor (CoinGecko)…";
+      const ctx=await resolveOnchainContract(sym, chainOv);
+      $("oc-progbar").style.width="60%";
+      status.textContent=`${ctx.name} · ${ctx.chain} · Moralis'ten çekiliyor…`;
+      if(type==="holders") html=renderHolders(await moralisGet(`/erc20/${ctx.address}/holders?chain=${ctx.chain}`, key), ctx);
+      else if(type==="topholders") html=renderTopHolders(await moralisGet(`/erc20/${ctx.address}/owners?chain=${ctx.chain}&order=DESC&limit=100`, key), ctx, limit);
+      else if(type==="metadata") html=renderMetadata(await moralisGet(`/erc20/metadata?chain=${ctx.chain}&addresses=${ctx.address}`, key), ctx);
+      else if(type==="swaps") html=renderSwaps(await moralisGet(`/erc20/${ctx.address}/swaps?chain=${ctx.chain}&order=DESC&limit=100`, key), ctx, minUsd, limit);
+      else if(type==="transfers"){
+        const [tr,pr]=await Promise.all([ moralisGet(`/erc20/${ctx.address}/transfers?chain=${ctx.chain}&order=DESC&limit=100`, key), moralisGet(`/erc20/${ctx.address}/price?chain=${ctx.chain}`, key).catch(()=>null) ]);
+        html=renderTransfers(tr, ctx, (pr&&num(pr.usdPrice)!=null)?num(pr.usdPrice):null, minUsd, limit);
+      }
+      else html=renderAnalytics(await moralisGet(`/tokens/${ctx.address}/analytics?chain=${ctx.chain}`, key), ctx);
+      label=`${ctx.name} (${ctx.chain})${ctx.avail.length>1?` · diğer: ${ctx.avail.map(a=>a.chain).filter(c=>c!==ctx.chain).join(", ")}`:''}`;
     }
-    else { j=await moralisGet(`/tokens/${ctx.address}/analytics?chain=${ctx.chain}`, key); html=renderAnalytics(j, ctx); }
     $("oc-progbar").style.width="100%";
-    out.innerHTML=html;
-    $("oc-clearbtn").style.display="block";
-    status.textContent=`${ctx.name} (${ctx.chain}) · ${ctx.avail.length>1?`diğer zincirler: ${ctx.avail.map(a=>a.chain).filter(c=>c!==ctx.chain).join(", ")} · `:''}tamamlandı.`;
+    out.innerHTML=html; $("oc-clearbtn").style.display="block";
+    status.textContent=label+" · tamamlandı.";
   }catch(e){
     status.innerHTML=`<span class="err">${escapeHtml(e.message)}</span>`;
-    out.innerHTML=`<div class="warnbox">Moralis CORS hatası veriyorsa (tarayıcıdan doğrudan erişime izin vermiyorsa) söyle — isteği senin Cloudflare Worker'ından geçirecek şekilde eklerim. Ağ/anahtar/zincir hatası da olabilir.</div>`;
+    out.innerHTML=`<div class="warnbox">Moralis CORS hatası veriyorsa söyle — Worker'dan geçirme zaten ekli. Ağ / anahtar / zincir / uç-nokta hatası da olabilir.</div>`;
   }finally{
     btn.disabled=false; $("oc-prog").classList.remove("on");
   }
